@@ -45,7 +45,8 @@ Wilco 是 [Pi coding agent](https://github.com/earendil-works/pi) 的原生 iPho
 | --- | --- |
 | [`Relay/`](Relay/) | Cloudflare Worker：转发加密流量、发送加密推送。可以自行部署。 |
 | [`Bridge/`](Bridge/) | Pi 扩展：`wilco-bridge`（把 Pi TUI 会话接入 Wilco）和 `wilco-guard`（审批策略）。 |
-| [`Protocol/`](Protocol/) | Wilco 通信协议规范、测试向量和样本数据。 |
+| [`Protocol/`](Protocol/) | Wilco 通信协议规范、测试向量和录制的 Pi 样本数据。 |
+| [`Tools/`](Tools/) | 测试工具：[`mock-llm`](Tools/mock-llm/README.zh-CN.md)（按脚本回复的 OpenAI 兼容模型）和 [`fixture-recorder`](Tools/fixture-recorder/README.zh-CN.md)（在隔离环境中录制 Pi RPC 交互记录）。 |
 | [`docs/`](docs/) | 中英文用户文档与开发者文档。 |
 
 iOS App 和 Mac Host 在另一个仓库中开发，以签名后的二进制形式发布。

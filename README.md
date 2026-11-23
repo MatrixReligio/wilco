@@ -45,7 +45,8 @@ This repository holds Wilco's open-source parts, under the MIT license:
 | --- | --- |
 | [`Relay/`](Relay/) | Cloudflare Worker that relays encrypted traffic and sends encrypted push notifications. You can run your own. |
 | [`Bridge/`](Bridge/) | Pi extensions: `wilco-bridge` (connects Pi TUI sessions to Wilco) and `wilco-guard` (approval policies). |
-| [`Protocol/`](Protocol/) | The Wilco wire protocol specification, test vectors and fixtures. |
+| [`Protocol/`](Protocol/) | The Wilco wire protocol specification, test vectors and recorded Pi fixtures. |
+| [`Tools/`](Tools/) | Test tooling: [`mock-llm`](Tools/mock-llm/) (scripted OpenAI-compatible model) and [`fixture-recorder`](Tools/fixture-recorder/) (records isolated Pi RPC transcripts). |
 | [`docs/`](docs/) | User and developer documentation in English and Chinese. |
 
 The iOS app and the Mac host are developed in a separate repository and distributed as signed binaries.

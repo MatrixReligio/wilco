@@ -8,3 +8,6 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 
 ### Added
 - Project documentation in English and Simplified Chinese.
+- `Tools/mock-llm`: scripted, OpenAI-compatible streaming server for deterministic Pi tests.
+- `Tools/fixture-recorder`: records normalized Pi RPC transcripts in an isolated environment.
+- `Protocol/fixtures/pi/1.6.0`: nine recorded Pi 1.6.0 RPC scenarios (state, streaming, tool calls, steering and follow-ups, abort, queue clearing, extension UI, session tree, errors).

@@ -25,6 +25,7 @@ Each component has its own README with setup and test commands:
 - [`Relay/`](Relay/): TypeScript, Cloudflare Workers, Vitest
 - [`Bridge/`](Bridge/): TypeScript Pi extensions, Vitest
 - [`Protocol/`](Protocol/): specification, fixtures and test vectors
+- [`Tools/`](Tools/): Node.js 22.19+ test tooling, Vitest. `mock-llm` scripts model replies; `fixture-recorder` re-records the Pi fixtures with your locally installed Pi in a throw-away environment that never touches your own Pi configuration or sessions
 
 ## Commits and pull requests
 

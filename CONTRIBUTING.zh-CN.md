@@ -25,6 +25,7 @@
 - [`Relay/`](Relay/)：TypeScript、Cloudflare Workers、Vitest
 - [`Bridge/`](Bridge/)：TypeScript Pi 扩展、Vitest
 - [`Protocol/`](Protocol/)：规范、样本数据和测试向量
+- [`Tools/`](Tools/)：测试工具，需要 Node.js 22.19+，使用 Vitest。`mock-llm` 按脚本模拟模型回复；`fixture-recorder` 用你本机安装的 Pi 在一次性的隔离环境中重新录制样本，绝不会触碰你自己的 Pi 配置或会话
 
 ## 提交与 Pull Request
 
