@@ -33,6 +33,35 @@
 
 目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`。
 
+## 错误码
+
+| `code` | 含义 |
+|---|---|
+| `unsupported_by_host` | Host 不认识该请求或命令，请更新 Wilco Host。 |
+| `unsupported_protocol` | 不支持设备的 `protocolVersion`，Host 随后关闭连接。 |
+| `unknown_workspace` | 该工作区未在 Host 上共享（或已取消共享）。 |
+| `unknown_session` | 会话不存在、不在任何共享工作区内，或（对命令而言）未在当前连接上打开。 |
+| `launch_failed` | 无法启动 Pi。 |
+| `invalid_command` | 会话命令不是带 `type` 的 JSON 对象。 |
+| `use_session_open` | 该命令会切换会话（`new_session`、`switch_session`、`fork`、`clone`），请改用 `session.open`。 |
+| `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
+| `not_available` | 已知命令，但当前 Host 版本不提供。 |
+| `pi_timeout`、`pi_error` | Pi 未能及时应答，或无法执行该命令。 |
+| `too_many_requests` | 此连接上等待执行的命令过多。 |
+| `internal_error` | Host 无法完成该请求。 |
+
+## 会话通道
+
+`"ch":"session"` 且带 `sid` 的信封，承载某个会话的 Pi RPC；该会话必须已由设备在同一连接上通过 `session.open` 打开。
+
+- **设备 → Host：**每个信封一条 Pi RPC 命令（不使用 `seq`，可为 0）。同一会话的命令按发送顺序到达 Pi。设备命令中的 `id` 会原样出现在响应里。
+- **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
+- **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。
+- 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。
+- 有两种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，表示有 Pi 输出无法读取。
+
 ## 断线续传
 
 客户端在 `session.open` 中带上它最后看到的 `epoch` 和 `lastSeq`。如果缺失的会话记录还在缓冲里，Host 会补发（`replaying`）。如果 epoch 变了，或者缺口已经不在缓冲中，Host 回复 `resync`，客户端改用 Pi 的 `get_entries` 游标和 `get_state` 追上进度。
+
+设备在实时流上落后太多时，Host 从它最后发出的那条记录继续发送；如果这些记录已不在缓冲中，Host 会先主动发送一条不带 `id` 的 `session.opened`，其中 `replay: "resync"`。

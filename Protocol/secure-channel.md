@@ -4,6 +4,10 @@
 
 Every byte between a Wilco client (the device) and a Wilco Host travels through this channel, whether over the local network, a direct address or the Wilco Relay. The relay only ever sees ciphertext.
 
+## Connection preamble
+
+The device's first message on a new connection, before any handshake message, is 4 bytes: `"WLC"` ‖ mode, where mode is `0x01` for a pairing handshake and `0x02` for a reconnect. It is framed like a Noise message. The Host closes the connection without a reply on any other preamble, on a pairing preamble while no invitation is active, and when the handshake and the device's `hello` have not completed within 30 seconds.
+
 ## Handshakes
 
 The device is always the Noise **initiator**, the Host the **responder**. Both use Curve25519, ChaCha20-Poly1305 and SHA-256, implemented exactly as in the [Noise Protocol Framework](https://noiseprotocol.org/noise.html), revision 34.

@@ -33,6 +33,35 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 
 Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`.
 
+## Error codes
+
+| `code` | Meaning |
+|---|---|
+| `unsupported_by_host` | The Host does not know this request or command; update Wilco Host. |
+| `unsupported_protocol` | The device's `protocolVersion` is not served; the Host closes the connection. |
+| `unknown_workspace` | The workspace is not (or no longer) shared on the Host. |
+| `unknown_session` | The session does not exist, is outside every shared workspace, or (for commands) was not opened on this connection. |
+| `launch_failed` | Pi could not be started. |
+| `invalid_command` | A session command is not a JSON object with a `type`. |
+| `use_session_open` | The command would change the session (`new_session`, `switch_session`, `fork`, `clone`); use `session.open`. |
+| `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
+| `not_available` | Known, but not offered by this Host version. |
+| `pi_timeout`, `pi_error` | Pi did not answer in time, or could not run the command. |
+| `too_many_requests` | Too many commands are waiting on this connection. |
+| `internal_error` | The Host could not complete the request. |
+
+## Session channel
+
+Envelopes with `"ch":"session"` and `sid` carry Pi RPC for one session that the device opened with `session.open` on the same connection.
+
+- **Device → Host:** one Pi RPC command per envelope (`seq` is not used and may be 0). Commands of one session reach Pi in the order sent. The device's command `id` is returned unchanged in the response.
+- **Host → device, stream records:** Pi's events, numbered by `seq` from 1 within the session's `epoch`. These are what resume replays.
+- **Host → device, responses:** the response to this device's command, or an error in Pi's response shape (`{"type":"response","id","command","success":false,"error","code"}`, codes as above), with `seq` 0: responses are not part of the stream and are never replayed.
+- Host file-system paths outside shared workspaces are replaced with `"<outside-workspace>"`, and session file paths with opaque `"session:…"` ids.
+- Two records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; and `{"type":"wilco_records_dropped","count"}`, where Pi output could not be read.
+
 ## Resume
 
 `session.open` with the `epoch` and `lastSeq` the client last saw lets the Host replay missed session records from its buffer (`replaying`). If the epoch changed or the gap is no longer buffered, the Host answers `resync` and the client catches up with Pi's `get_entries` cursor and `get_state`.
+
+If a device falls too far behind a live stream, the Host continues it from the last record it sent; if those records are no longer buffered it first sends an unsolicited `session.opened` (no `id`) with `replay: "resync"`.
