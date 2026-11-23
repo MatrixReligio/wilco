@@ -58,7 +58,7 @@ Envelopes with `"ch":"session"` and `sid` carry Pi RPC for one session that the 
 - **Host → device, stream records:** Pi's events, numbered by `seq` from 1 within the session's `epoch`. These are what resume replays.
 - **Host → device, responses:** the response to this device's command, or an error in Pi's response shape (`{"type":"response","id","command","success":false,"error","code"}`, codes as above), with `seq` 0: responses are not part of the stream and are never replayed.
 - Host file-system paths outside shared workspaces are replaced with `"<outside-workspace>"`, and session file paths with opaque `"session:…"` ids.
-- Two records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; and `{"type":"wilco_records_dropped","count"}`, where Pi output could not be read.
+- Two records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; and `{"type":"wilco_records_dropped","count"}`, in place of Pi output that could not be read or was not a JSON object (such output is never forwarded).
 
 ## Resume
 

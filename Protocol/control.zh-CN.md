@@ -58,7 +58,7 @@
 - **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
 - **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。
 - 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。
-- 有两种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，表示有 Pi 输出无法读取。
+- 有两种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，代替无法读取或不是 JSON 对象的 Pi 输出（这类输出不会被转发）。
 
 ## 断线续传
 
