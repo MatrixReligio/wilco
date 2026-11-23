@@ -11,6 +11,7 @@ Recording never touches your Pi setup or running sessions:
 - a throw-away temp root with its own `HOME`, `PI_CODING_AGENT_DIR` (containing only a `mock` provider), working directory and session directory;
 - only `PATH`, locale and terminal variables are inherited, so no API keys or `PI_*` settings leak in; `PI_OFFLINE=1`, `PI_TELEMETRY=0`;
 - `--no-skills --no-prompt-templates --no-context-files --no-mcp --no-extensions --no-themes`, plus `--no-session` unless a scenario asks for a (temporary) session dir;
+- Pi's managed launcher (`~/.pi/agent/bin/pi`) is resolved to the release binary it would run, because the launcher exports `PI_MANAGED_INSTALL_ROOT`, which makes Pi tidy up `~/.pi/agent/install` on start-up;
 - only the child processes the recorder started are ever signalled.
 
 ## Run

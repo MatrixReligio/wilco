@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { recordAll, recordScenario } from "../src/record.ts";
+import { mkdir, mkdtemp, readFile, readdir, readdir as readdirFs, rm, stat, writeFile } from "node:fs/promises";
+import { piVersion, recordAll, recordScenario } from "../src/record.ts";
 import { loadScenarios } from "../src/scenario.ts";
 
 function findPi(): string | undefined {
@@ -27,23 +27,47 @@ describe.skipIf(!piPath)("recording against real Pi", () => {
   });
 
   test("recordingIsIsolatedFromUserEnvironment", async () => {
-    const [scenario] = await loadScenarios(["state-models-commands"]);
-    const lines = await recordScenario(scenario, { piPath: piPath! });
-    expect(JSON.stringify(lines)).not.toContain(os.homedir());
-    const commands = lines.find(
-      (l) => l.dir === "recv" && (l.record as any)?.type === "response" && (l.record as any)?.command === "get_commands",
-    );
-    expect(commands).toBeDefined();
-    const list = ((commands!.record as any).data?.commands ?? []) as { source?: string }[];
-    expect(list.filter((c) => c.source === "skill")).toEqual([]);
+    // Decoy "user" environment: if any of it reaches Pi, the recording fails or leaks a sentinel.
+    const decoy = await mkdtemp(path.join(os.tmpdir(), "wilco-decoy-"));
+    const decoyAgent = path.join(decoy, "agent");
+    await mkdir(path.join(decoyAgent, "skills", "wilco-decoy-skill"), { recursive: true });
+    await writeFile(path.join(decoyAgent, "skills", "wilco-decoy-skill", "SKILL.md"), "---\nname: wilco-decoy-skill\ndescription: decoy\n---\nDECOY\n");
+    await writeFile(path.join(decoyAgent, "settings.json"), JSON.stringify({ defaultProvider: "wilco-decoy-provider" }));
+    await writeFile(path.join(decoyAgent, "auth.json"), JSON.stringify({ openai: { type: "api_key", key: "sk-wilco-decoy-auth" } }));
+    const snapshot = async () =>
+      Promise.all(
+        (await readdirFs(decoy, { recursive: true })).sort().map(async (f) => `${f}:${(await stat(path.join(decoy, f))).mtimeMs}`),
+      );
+    const before = await snapshot();
+    const saved = { ...process.env };
+    Object.assign(process.env, {
+      HOME: decoy,
+      PI_CODING_AGENT_DIR: decoyAgent,
+      PI_MANAGED_INSTALL_ROOT: path.join(decoy, "install"),
+      OPENAI_API_KEY: "sk-wilco-decoy-env",
+    });
+    try {
+      const [scenario] = await loadScenarios(["state-models-commands"]);
+      const text = JSON.stringify(await recordScenario(scenario, { piPath: piPath! }));
+      for (const sentinel of ["wilco-decoy", "sk-wilco-decoy", "<HOME>", decoy, saved.HOME!]) {
+        expect(text, sentinel).not.toContain(sentinel);
+      }
+      expect(await snapshot()).toEqual(before);
+    } finally {
+      for (const key of ["HOME", "PI_CODING_AGENT_DIR", "PI_MANAGED_INSTALL_ROOT", "OPENAI_API_KEY"]) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      }
+      await rm(decoy, { recursive: true, force: true });
+    }
   });
 
   test("every scenario completes", async () => {
     const out = await mkdtemp(path.join(os.tmpdir(), "wilco-fixtures-"));
     try {
-      const { piVersion, scenarios } = await recordAll({ piPath: piPath!, outDir: out, names: "all" });
-      const version = execFileSync(piPath!, ["--version"], { encoding: "utf8" }).trim();
-      expect(piVersion).toBe(version);
+      const { piVersion: recordedVersion, scenarios } = await recordAll({ piPath: piPath!, outDir: out, names: "all" });
+      const version = await piVersion(piPath!); // isolated: never runs pi with the real environment
+      expect(recordedVersion).toBe(version);
       expect(scenarios).toHaveLength(9);
       const manifest = JSON.parse(await readFile(path.join(out, version, "manifest.json"), "utf8"));
       expect(manifest).toEqual({ piVersion: version, scenarios });
@@ -52,6 +76,7 @@ describe.skipIf(!piPath)("recording against real Pi", () => {
       for (const f of files) {
         const text = await readFile(path.join(out, version, f), "utf8");
         expect(text, f).not.toContain(os.homedir());
+        expect(text, f).not.toContain("<HOME>");
       }
     } finally {
       await rm(out, { recursive: true, force: true });

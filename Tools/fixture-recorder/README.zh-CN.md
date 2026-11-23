@@ -11,6 +11,7 @@
 - 使用一次性的临时根目录，其中有独立的 `HOME`、`PI_CODING_AGENT_DIR`（只含一个 `mock` provider）、工作目录和会话目录；
 - 只继承 `PATH`、语言区域和终端相关变量，不会带入任何 API key 或 `PI_*` 设置；并设置 `PI_OFFLINE=1`、`PI_TELEMETRY=0`；
 - 使用 `--no-skills --no-prompt-templates --no-context-files --no-mcp --no-extensions --no-themes`，场景没有要求（临时）会话目录时加 `--no-session`；
+- Pi 的托管启动器（`~/.pi/agent/bin/pi`）会被解析为它实际执行的 release 可执行文件，因为该启动器会导出 `PI_MANAGED_INSTALL_ROOT`，导致 Pi 在启动时清理 `~/.pi/agent/install`；
 - 只会向录制器自己启动的子进程发送信号。
 
 ## 运行

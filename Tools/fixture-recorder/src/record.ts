@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { startMockLLM } from "@matrixreligio/wilco-mock-llm/src/server.ts";
 import { isolate } from "./isolate.ts";
 import { normalize, type FixtureLine } from "./normalize.ts";
+import { resolvePiExecutable } from "./pi-executable.ts";
 import { loadScenarios, resolveRefs, type Scenario } from "./scenario.ts";
 
 const STEP_TIMEOUT_MS = 15_000;
@@ -18,7 +19,8 @@ type Rec = Record<string, any>;
 export async function recordScenario(s: Scenario, opts: { piPath: string }): Promise<FixtureLine[]> {
   const llm = await startMockLLM({ port: 0, script: s.mock });
   const iso = await isolate(llm.url);
-  const child = spawn(opts.piPath, iso.args(s), { cwd: iso.cwd, env: iso.env, stdio: ["pipe", "pipe", "pipe"] });
+  const executable = await resolvePiExecutable(opts.piPath);
+  const child = spawn(executable, iso.args(s), { cwd: iso.cwd, env: iso.env, stdio: ["pipe", "pipe", "pipe"] });
 
   const lines: FixtureLine[] = [];
   const received: Rec[] = [];
@@ -130,7 +132,10 @@ export async function recordScenario(s: Scenario, opts: { piPath: string }): Pro
 export async function piVersion(piPath: string): Promise<string> {
   const iso = await isolate("http://127.0.0.1:9/v1");
   try {
-    const { stdout } = await promisify(execFile)(piPath, ["--version"], { env: iso.env, cwd: iso.cwd });
+    const { stdout } = await promisify(execFile)(await resolvePiExecutable(piPath), ["--version"], {
+      env: iso.env,
+      cwd: iso.cwd,
+    });
     return stdout.trim();
   } finally {
     await iso.cleanup();
