@@ -54,9 +54,9 @@ Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, 
 
 Envelopes with `"ch":"session"` and `sid` carry Pi RPC for one session that the device opened with `session.open` on the same connection.
 
-- **Device → Host:** one Pi RPC command per envelope (`seq` is not used and may be 0). Commands of one session reach Pi in the order sent. The device's command `id` is returned unchanged in the response.
+- **Device → Host:** one Pi RPC command per envelope (`seq` is not used and may be 0). Commands of one session reach Pi in the order sent; a command does not wait for the previous one's response (so `abort_bash` can interrupt a running `bash`). The device's command `id` is returned unchanged in the response. A command that Pi does not answer within 60 seconds fails with `pi_timeout`, and the Host then stops that Pi process, since it no longer responds (the stream ends with `wilco_session_stopped`; opening the session again starts Pi anew). `bash` and `compact`, which Pi answers when their work ends, have no time limit.
 - **Host → device, stream records:** Pi's events, numbered by `seq` from 1 within the session's `epoch`. These are what resume replays.
-- **Host → device, responses:** the response to this device's command, or an error in Pi's response shape (`{"type":"response","id","command","success":false,"error","code"}`, codes as above), with `seq` 0: responses are not part of the stream and are never replayed.
+- **Host → device, responses:** the response to this device's command, or an error in Pi's response shape (`{"type":"response","id","command","success":false,"error","code"}`, codes as above), with `seq` 0: responses are not part of the stream and are never replayed. One Host record also uses `seq` 0: `{"type":"wilco_session_stopped"}`, sent when the Host resumes a stream for a device that fell behind and finds that the session has stopped meanwhile.
 - Host file-system paths outside shared workspaces are replaced with `"<outside-workspace>"`, and session file paths with opaque `"session:…"` ids.
 - Two records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; and `{"type":"wilco_records_dropped","count"}`, in place of Pi output that could not be read or was not a JSON object (such output is never forwarded).
 

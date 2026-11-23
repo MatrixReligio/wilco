@@ -54,9 +54,9 @@
 
 `"ch":"session"` 且带 `sid` 的信封，承载某个会话的 Pi RPC；该会话必须已由设备在同一连接上通过 `session.open` 打开。
 
-- **设备 → Host：**每个信封一条 Pi RPC 命令（不使用 `seq`，可为 0）。同一会话的命令按发送顺序到达 Pi。设备命令中的 `id` 会原样出现在响应里。
+- **设备 → Host：**每个信封一条 Pi RPC 命令（不使用 `seq`，可为 0）。同一会话的命令按发送顺序到达 Pi；一条命令不必等前一条的响应（所以 `abort_bash` 能中断正在运行的 `bash`）。设备命令中的 `id` 会原样出现在响应里。Pi 在 60 秒内没有回应的命令以 `pi_timeout` 失败，Host 随后停止这个已不再响应的 Pi 进程（流以 `wilco_session_stopped` 结束；再次打开会话时重新启动 Pi）。`bash` 和 `compact` 要等工作完成 Pi 才回应，因此不设时限。
 - **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
-- **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。
+- **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。另有一条 Host 记录也使用 `seq` 0：`{"type":"wilco_session_stopped"}`，在 Host 为落后的设备恢复流、却发现会话已经停止时发送。
 - 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。
 - 有两种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，代替无法读取或不是 JSON 对象的 Pi 输出（这类输出不会被转发）。
 
