@@ -18,6 +18,7 @@ See the [Protocol overview](../docs/en/protocol.md) for the design. Normative do
   - `{"dir":"send","raw":"…"}`: a raw, non-JSON input line (used to test parse errors)
   - `{"dir":"recv","record":{…}}`: a record Pi wrote to stdout (stderr is not recorded)
 - `manifest.json`: `{"piVersion": "…", "scenarios": […]}`, with no timestamps, so re-recording is byte-for-byte reproducible.
+- `sessions/<scenario>/<n>.jsonl`: the session files Pi wrote during scenarios that use a session directory, in creation order and normalized with the same placeholders as the transcript. Hosts test their session-file reader against them.
 - `known-unknowns.json` (optional): record types a given Pi version emits that the Swift model deliberately keeps as `.unknown`.
 
 Recordings are normalized: UUIDs become `<uuid-N>`, session entry ids `<entry-N>`, timestamps and durations are zeroed, and the temp workspace, mock server URL, Pi install path and home directory are replaced by `<TMP>`, `<MOCK_URL>`, `<PI_PACKAGE>` and `<HOME>`.

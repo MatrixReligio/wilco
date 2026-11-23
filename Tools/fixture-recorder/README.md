@@ -31,7 +31,7 @@ npm test   # unit tests; integration tests run when pi is on PATH (or PI_PATH is
 ```jsonc
 {
   "mock": { "turns": [{ "text": ["Hello"] }] },   // mock-llm script
-  "useSessionDir": false,                          // true: --session-dir <tmp>/sessions
+  "useSessionDir": false,                          // true: --session-dir <tmp>/sessions, saved to sessions/<scenario>/
   "extensions": ["extensions/ui-probe.ts"],        // loaded with -e
   "steps": [
     { "send": { "type": "prompt", "message": "Hi" } },  // id "c<n>" is assigned when absent

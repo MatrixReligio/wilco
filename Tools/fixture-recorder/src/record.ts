@@ -1,12 +1,12 @@
 import { spawn, execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { startMockLLM } from "@matrixreligio/wilco-mock-llm/src/server.ts";
 import { isolate } from "./isolate.ts";
-import { normalize, type FixtureLine } from "./normalize.ts";
+import { normalizeRecording, type FixtureLine, type SessionFile } from "./normalize.ts";
 import { resolvePiExecutable } from "./pi-executable.ts";
 import { loadScenarios, resolveRefs, type Scenario } from "./scenario.ts";
 
@@ -17,6 +17,26 @@ type Rec = Record<string, any>;
 
 /** Runs one scenario against a real Pi in an isolated environment and returns its normalized transcript. */
 export async function recordScenario(s: Scenario, opts: { piPath: string }): Promise<FixtureLine[]> {
+  return (await recordScenarioWithSessions(s, opts)).lines;
+}
+
+export type Recording = { lines: FixtureLine[]; sessions: SessionFile[] };
+
+/** Reads every *.jsonl under dir (sorted by path), one JSON value per non-empty line. */
+async function readSessionFiles(dir: string): Promise<SessionFile[]> {
+  const files = (await readdir(dir, { recursive: true })).filter((f) => f.endsWith(".jsonl")).sort();
+  return Promise.all(
+    files.map(async (f) =>
+      (await readFile(path.join(dir, f), "utf8"))
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => JSON.parse(line) as unknown),
+    ),
+  );
+}
+
+/** Like recordScenario, plus the session files Pi wrote (scenarios with useSessionDir). */
+export async function recordScenarioWithSessions(s: Scenario, opts: { piPath: string }): Promise<Recording> {
   const llm = await startMockLLM({ port: 0, script: s.mock });
   const iso = await isolate(llm.url);
   const executable = await resolvePiExecutable(opts.piPath);
@@ -117,7 +137,8 @@ export async function recordScenario(s: Scenario, opts: { piPath: string }): Pro
     const timer = setTimeout(() => child.kill("SIGTERM"), EXIT_TIMEOUT_MS);
     await exit;
     clearTimeout(timer);
-    return normalize(lines, { tmpRoot: iso.root, mockURL: llm.url, homeDir: os.homedir() });
+    const sessions = s.useSessionDir ? await readSessionFiles(iso.sessionsDir) : [];
+    return normalizeRecording(lines, sessions, { tmpRoot: iso.root, mockURL: llm.url, homeDir: os.homedir() });
   } finally {
     if (!exited) {
       child.kill("SIGTERM");
@@ -159,7 +180,16 @@ export async function recordAll(opts: {
   const scenarios = await loadScenarios(opts.names);
   for (const s of scenarios) {
     opts.log?.(`recording ${s.name}`);
-    await writeFile(path.join(dir, `${s.name}.jsonl`), serialize(await recordScenario(s, { piPath: opts.piPath })));
+    const recording = await recordScenarioWithSessions(s, { piPath: opts.piPath });
+    await writeFile(path.join(dir, `${s.name}.jsonl`), serialize(recording.lines));
+    const sessionDir = path.join(dir, "sessions", s.name);
+    await rm(sessionDir, { recursive: true, force: true });
+    if (recording.sessions.length > 0) {
+      await mkdir(sessionDir, { recursive: true });
+      for (const [index, file] of recording.sessions.entries()) {
+        await writeFile(path.join(sessionDir, `${index + 1}.jsonl`), file.map((r) => JSON.stringify(r)).join("\n") + "\n");
+      }
+    }
   }
   const names = scenarios.map((s) => s.name).sort();
   await writeFile(path.join(dir, "manifest.json"), JSON.stringify({ piVersion: version, scenarios: names }, null, 2) + "\n");

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { normalize, type FixtureLine } from "../src/normalize.ts";
+import { normalize, normalizeRecording, type FixtureLine } from "../src/normalize.ts";
 
 const U1 = "0f35cfbb-9c9d-4cfa-b0c2-0de3c79dade5";
 const U2 = "11111111-2222-4333-8444-555555555555";
@@ -79,4 +79,17 @@ test("input is not mutated", () => {
   const input = [recv({ timestamp: 5 })];
   normalize(input, ctx);
   expect(input).toEqual([recv({ timestamp: 5 })]);
+});
+
+test("session files share placeholders with the transcript", () => {
+  const out = normalizeRecording(
+    [recv({ type: "response", data: { sessionId: U1, sessionFile: `/private/tmp/wilco-rec-abc123/sessions/x_${U1}.jsonl` } })],
+    [[{ type: "session", id: U1, cwd: "/private/tmp/wilco-rec-abc123/work", timestamp: "2026-11-23T07:03:28.333Z" }, { type: "message", id: "a1b2c3d4", parentId: null }]],
+    ctx,
+  );
+  expect(out.lines).toEqual([recv({ type: "response", data: { sessionId: "<uuid-1>", sessionFile: "<TMP>/sessions/x_<uuid-1>.jsonl" } })]);
+  expect(out.sessions).toEqual([[
+    { type: "session", id: "<uuid-1>", cwd: "<TMP>/work", timestamp: "1970-01-01T00:00:00.000Z" },
+    { type: "message", id: "<entry-1>", parentId: null },
+  ]]);
 });

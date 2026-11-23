@@ -73,6 +73,10 @@ describe.skipIf(!piPath)("recording against real Pi", () => {
       expect(manifest).toEqual({ piVersion: version, scenarios });
       const files = (await readdir(path.join(out, version))).filter((f) => f.endsWith(".jsonl")).sort();
       expect(files).toEqual(scenarios.map((s: string) => `${s}.jsonl`).sort());
+      const sessionFile = await readFile(path.join(out, version, "sessions", "session-tree", "1.jsonl"), "utf8");
+      const header = JSON.parse(sessionFile.split("\n")[0]);
+      expect(header).toMatchObject({ type: "session", cwd: "<TMP>/work" });
+      expect(sessionFile).not.toContain(os.homedir());
       for (const f of files) {
         const text = await readFile(path.join(out, version, f), "utf8");
         expect(text, f).not.toContain(os.homedir());

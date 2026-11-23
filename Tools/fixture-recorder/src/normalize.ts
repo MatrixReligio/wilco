@@ -76,3 +76,26 @@ export function normalize(lines: FixtureLine[], ctx: NormalizeContext): FixtureL
     line.raw !== undefined ? { dir: line.dir, raw: text(line.raw) } : { dir: line.dir, record: walk(line.record) },
   );
 }
+
+/** A session file: one JSON value per line, as Pi wrote it. */
+export type SessionFile = unknown[];
+
+/**
+ * Normalizes a transcript together with the session files Pi wrote during it, so the same
+ * UUID, entry id or path gets the same placeholder in both.
+ */
+export function normalizeRecording(
+  lines: FixtureLine[],
+  sessions: SessionFile[],
+  ctx: NormalizeContext,
+): { lines: FixtureLine[]; sessions: SessionFile[] } {
+  const combined: FixtureLine[] = [...lines, ...sessions.flat().map((record) => ({ dir: "recv" as const, record }))];
+  const out = normalize(combined, ctx);
+  const sessionsOut: SessionFile[] = [];
+  let offset = lines.length;
+  for (const file of sessions) {
+    sessionsOut.push(out.slice(offset, offset + file.length).map((l) => l.record));
+    offset += file.length;
+  }
+  return { lines: out.slice(0, lines.length), sessions: sessionsOut };
+}

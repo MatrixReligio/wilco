@@ -5,6 +5,8 @@ import type { Scenario } from "./scenario.ts";
 
 export type Isolation = {
   root: string;
+  /** Where Pi writes session files for scenarios with useSessionDir. */
+  sessionsDir: string;
   env: NodeJS.ProcessEnv;
   cwd: string;
   args(s: Scenario): string[];
@@ -61,6 +63,7 @@ export async function isolate(mockURL: string): Promise<Isolation> {
 
   return {
     root,
+    sessionsDir: sessions,
     env,
     cwd,
     args(s: Scenario): string[] {
