@@ -1,0 +1,24 @@
+{
+  "name": "@matrixreligio/wilco-mock-llm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scripted OpenAI-compatible streaming server for deterministic Pi agent tests",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "wilco-mock-llm": "src/cli.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "start": "node src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
