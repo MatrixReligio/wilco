@@ -1,0 +1,44 @@
+{
+  "mock": {
+    "turns": [
+      {
+        "text": [
+          "Hello",
+          " from",
+          " mock"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "prompt",
+        "message": "Say hello"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "agent_settled"
+    },
+    {
+      "send": {
+        "type": "get_messages"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_last_assistant_text"
+      }
+    },
+    {
+      "await": "response"
+    }
+  ]
+}

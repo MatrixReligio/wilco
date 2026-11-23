@@ -1,0 +1,8 @@
+{"dir":"send","raw":"{not json"}
+{"dir":"recv","record":{"type":"response","command":"parse","success":false,"error":"Failed to parse command: Expected property name or '}' in JSON at position 1 (line 1 column 2)"}}
+{"dir":"send","record":{"type":"no_such_command","id":"c1"}}
+{"dir":"recv","record":{"id":"c1","type":"response","command":"no_such_command","success":false,"error":"Unknown command: no_such_command"}}
+{"dir":"send","record":{"type":"set_model","provider":"nope","modelId":"nope","id":"c2"}}
+{"dir":"recv","record":{"id":"c2","type":"response","command":"set_model","success":false,"error":"Model not found: nope/nope"}}
+{"dir":"send","record":{"type":"get_entries","since":"missing-entry","id":"c3"}}
+{"dir":"recv","record":{"id":"c3","type":"response","command":"get_entries","success":false,"error":"Entry not found: missing-entry"}}

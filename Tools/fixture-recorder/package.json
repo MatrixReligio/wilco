@@ -1,0 +1,24 @@
+{
+  "name": "@matrixreligio/wilco-fixture-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Records normalized Pi RPC transcripts in an isolated environment for Wilco contract tests",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "record": "node src/cli.ts"
+  },
+  "dependencies": {
+    "@matrixreligio/wilco-mock-llm": "file:../mock-llm"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

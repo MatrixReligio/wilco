@@ -1,0 +1,47 @@
+{
+  "mock": {
+    "turns": []
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "get_state"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_available_models"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_available_thinking_levels"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_commands"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_session_stats"
+      }
+    },
+    {
+      "await": "response"
+    }
+  ]
+}

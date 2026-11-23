@@ -1,0 +1,40 @@
+{
+  "mock": {
+    "turns": []
+  },
+  "steps": [
+    {
+      "sendRaw": "{not json"
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "no_such_command"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "set_model",
+        "provider": "nope",
+        "modelId": "nope"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_entries",
+        "since": "missing-entry"
+      }
+    },
+    {
+      "await": "response"
+    }
+  ]
+}

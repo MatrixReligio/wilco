@@ -1,0 +1,14 @@
+{
+  "piVersion": "1.6.0",
+  "scenarios": [
+    "abort",
+    "errors",
+    "extension-ui",
+    "prompt-text-stream",
+    "prompt-tool-call",
+    "queue-clear",
+    "session-tree",
+    "state-models-commands",
+    "steer-followup"
+  ]
+}

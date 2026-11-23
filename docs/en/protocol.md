@@ -32,3 +32,7 @@ Messages Pi doesn't provide: `hello` (versions and capabilities), `workspace.lis
 ## Resume
 
 Every envelope has a sequence number. After reconnecting, the client sends its last `seq`. The host replays missed records from a bounded buffer, or answers `resync`. In that case the client catches up with Pi's `get_entries since=<entryId>` cursor.
+
+## Fixtures
+
+Wilco's protocol code is tested against real transcripts of Pi in RPC mode, stored in [`Protocol/fixtures/pi/<version>/`](../../Protocol/README.md#pi-fixtures). Each file is JSON Lines of `{"dir":"send"|"recv","record":{…}}` (or `{"dir":"send","raw":"…"}` for deliberately malformed input). They are produced by [`Tools/fixture-recorder`](../../Tools/fixture-recorder/README.md), which runs Pi against a scripted mock model in a throw-away home directory and normalizes ids, timestamps and paths so recordings are reproducible. When a new Pi version ships, recording its fixtures and running the contract tests shows exactly what changed on the wire.

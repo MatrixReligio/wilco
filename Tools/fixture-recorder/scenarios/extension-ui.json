@@ -1,0 +1,43 @@
+{
+  "mock": {
+    "turns": []
+  },
+  "extensions": [
+    "extensions/ui-probe.ts"
+  ],
+  "steps": [
+    {
+      "send": {
+        "type": "prompt",
+        "message": "/ui-probe"
+      }
+    },
+    {
+      "respondUI": {
+        "method": "select",
+        "value": "Allow"
+      }
+    },
+    {
+      "respondUI": {
+        "method": "confirm",
+        "confirmed": true
+      }
+    },
+    {
+      "respondUI": {
+        "method": "input",
+        "value": "wilco"
+      }
+    },
+    {
+      "respondUI": {
+        "method": "editor",
+        "cancelled": true
+      }
+    },
+    {
+      "await": "response"
+    }
+  ]
+}

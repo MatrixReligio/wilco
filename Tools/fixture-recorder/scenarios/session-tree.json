@@ -1,0 +1,125 @@
+{
+  "useSessionDir": true,
+  "mock": {
+    "turns": [
+      {
+        "text": [
+          "First answer."
+        ]
+      },
+      {
+        "text": [
+          "Second answer."
+        ]
+      },
+      {
+        "text": [
+          "Summary of conversation."
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "prompt",
+        "message": "First"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "agent_settled"
+    },
+    {
+      "send": {
+        "type": "prompt",
+        "message": "Second"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "agent_settled"
+    },
+    {
+      "send": {
+        "type": "set_session_name",
+        "name": "fixture"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_state"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_entries"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_tree"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_fork_messages"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "fork",
+        "entryId": "$last:get_fork_messages:data.messages[1].entryId"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "clone"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "get_entries",
+        "since": "$last:get_entries:data.entries[0].id"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "compact"
+      }
+    },
+    {
+      "await": "response"
+    }
+  ]
+}

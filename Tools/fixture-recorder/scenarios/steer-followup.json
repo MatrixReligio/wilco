@@ -1,0 +1,78 @@
+{
+  "mock": {
+    "turns": [
+      {
+        "text": [
+          "chunk1 ",
+          "chunk2 ",
+          "chunk3 ",
+          "chunk4 ",
+          "chunk5 ",
+          "chunk6 "
+        ],
+        "chunkDelayMs": 300
+      },
+      {
+        "text": [
+          "Steered."
+        ]
+      },
+      {
+        "text": [
+          "Followed up."
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "prompt",
+        "message": "Write a long answer"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "message_update",
+      "assistantEvent": "text_delta"
+    },
+    {
+      "send": {
+        "type": "prompt",
+        "message": "Interrupt without streamingBehavior"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "steer",
+        "message": "Change course"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "send": {
+        "type": "follow_up",
+        "message": "Then summarize"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "queue_update"
+    },
+    {
+      "await": "event",
+      "type": "agent_settled"
+    }
+  ]
+}

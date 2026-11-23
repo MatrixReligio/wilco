@@ -1,0 +1,37 @@
+{
+  "mock": {
+    "turns": [
+      {
+        "toolCalls": [
+          {
+            "id": "call_1",
+            "name": "bash",
+            "arguments": {
+              "command": "echo wilco"
+            }
+          }
+        ]
+      },
+      {
+        "text": [
+          "Done."
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "prompt",
+        "message": "Run echo wilco"
+      }
+    },
+    {
+      "await": "response"
+    },
+    {
+      "await": "event",
+      "type": "agent_settled"
+    }
+  ]
+}

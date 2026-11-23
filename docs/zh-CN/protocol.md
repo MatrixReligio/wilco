@@ -32,3 +32,7 @@ Noise 传输层（ChaCha20-Poly1305，有序记录）
 ## 断线续传
 
 每个信封都带有序号。重连后，客户端发送自己收到的最后一个 `seq`。Host 从有界缓冲区中补发缺失的记录；如果缺口超出缓冲范围，则返回 `resync`，由客户端通过 Pi 的 `get_entries since=<entryId>` 游标补齐。
+
+## 样本（Fixtures）
+
+Wilco 的协议代码用真实的 Pi RPC 模式交互记录来测试，存放在 [`Protocol/fixtures/pi/<版本>/`](../../Protocol/README.md#pi-fixtures)。每个文件都是 JSON Lines，每行为 `{"dir":"send"|"recv","record":{…}}`（刻意构造的非法输入记为 `{"dir":"send","raw":"…"}`）。这些样本由 [`Tools/fixture-recorder`](../../Tools/fixture-recorder/README.zh-CN.md) 生成：它在一次性的临时 HOME 中让 Pi 对接一个按脚本回复的 mock 模型，并把 id、时间戳和路径归一化，确保重复录制结果一致。Pi 发布新版本后，录制新样本并运行契约测试，就能准确看到线上格式的变化。

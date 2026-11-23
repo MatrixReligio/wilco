@@ -1,0 +1,15 @@
+{"dir":"send","record":{"type":"prompt","message":"/ui-probe","id":"c1"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-1>","method":"select","title":"Allow dangerous command?","options":["Allow","Block"]}}
+{"dir":"send","record":{"type":"extension_ui_response","id":"<uuid-1>","value":"Allow"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-2>","method":"confirm","title":"Proceed?","message":"The probe will continue."}}
+{"dir":"send","record":{"type":"extension_ui_response","id":"<uuid-2>","confirmed":true}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-3>","method":"input","title":"Name:","placeholder":"type something..."}}
+{"dir":"send","record":{"type":"extension_ui_response","id":"<uuid-3>","value":"wilco"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-4>","method":"editor","title":"Edit:","prefill":"prefilled text"}}
+{"dir":"send","record":{"type":"extension_ui_response","id":"<uuid-4>","cancelled":true}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-5>","method":"notify","message":"probe: Allow/true/wilco/cancelled","notifyType":"info"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-6>","method":"setStatus","statusKey":"ui-probe","statusText":"probing"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-7>","method":"setWidget","widgetKey":"ui-probe","widgetLines":["line 1","line 2"]}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-8>","method":"setTitle","title":"wilco probe"}}
+{"dir":"recv","record":{"type":"extension_ui_request","id":"<uuid-9>","method":"set_editor_text","text":"prefill from probe"}}
+{"dir":"recv","record":{"id":"c1","type":"response","command":"prompt","success":true,"data":{"disposition":"handled"}}}
