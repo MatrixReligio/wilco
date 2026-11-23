@@ -15,11 +15,14 @@ The device is always the Noise **initiator**, the Host the **responder**. Both u
 
 Implementations must reproduce the vectors in [`test-vectors/noise/`](test-vectors/noise/README.md) byte for byte.
 
-Handshake payloads:
+Handshake payloads and confirmation:
 
-- The device's last handshake message (XX message 3, IK message 1) carries its hello payload, encrypted.
-- **Host handshake messages carry an empty payload.** When they are sent, the peer has not yet proven the pairing secret (XX) or been checked against the Host's device registry (IK). The Host's hello is its first transport message, sent only after that check passes.
+- **Every handshake message carries an empty payload**, in both directions.
+- The device speaks first after the handshake: its first transport message is its `hello` control message.
+- **The Host treats the device as connected only once that first transport message decrypts.** IK message 1 is replayable: anyone who captured one can make a Host complete the handshake again, but cannot produce a transport message under the new keys. Until the first message decrypts, the Host records nothing (no "last seen", no online state, no replacement of an existing connection) and sends nothing.
+- The Host then checks the device's static key: for reconnects against its device registry (unknown or revoked keys are disconnected without a reply), for pairing through owner approval. Only then does it send its first transport message, `hello.ok`.
 - In XX, the device checks that the Host's static key revealed in message 2 equals the key in the invitation, and aborts otherwise.
+- The Host accepts a pairing handshake only while its invitation is active: at most one at a time, refused once `x` has passed or after one device was approved with it. The device's clock is not trusted for this.
 - Any handshake error ends the attempt; a new attempt starts from scratch.
 
 ## Pairing invitation
@@ -66,6 +69,7 @@ flag (1 byte: 0x00 = more fragments follow, 0x01 = final) ‖ up to 65518 bytes 
 ```
 
 - Each fragment is encrypted as one Noise transport message with empty associated data.
+- Noise messages must be transmitted in the order they were encrypted.
 - An empty message is a single final fragment.
 - A non-final fragment must not be empty, and any other flag value is an error.
 - Receivers enforce a maximum assembled message size (64 MiB by default) and fail the session before buffering beyond it.

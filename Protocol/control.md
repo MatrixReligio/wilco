@@ -7,7 +7,11 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 ## Compatibility
 
 - Receivers ignore unknown fields.
-- A message of an unknown `type`, or a known type with fields of the wrong type, is kept as an opaque value, not an error. A peer replies `error` with code `unsupported` if it cannot serve a request.
+- A message of an unknown `type`, or a known type with fields of the wrong type, is kept as an opaque value, not an error. A peer replies `error` with code `unsupported_by_host` if it cannot serve a request.
+- In a list result, an element that does not parse is skipped; the rest of the list is used.
+- An unknown `replay` value is treated as `resync`.
+- Timestamps are ISO 8601; receivers accept them with or without fractional seconds.
+- Sequence numbers (`seq`, `ack`, `lastSeq`) are integers from 0 to 2^53 − 1.
 - Capabilities are an open set of strings; peers keep the ones they don't know.
 
 ## Messages
