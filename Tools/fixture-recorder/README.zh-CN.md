@@ -19,7 +19,8 @@
 ```sh
 npm install
 node src/cli.ts --pi "$(command -v pi)" --out ../../Protocol/fixtures/pi --scenarios all
-# 或在仓库根目录执行：Scripts/record-fixtures.sh [name,name|all]
+npm run record                          # 录制全部场景到 ../../Protocol/fixtures/pi，pi 取自 PI_PATH 或 PATH
+npm run record -- --scenarios abort     # 只录一个场景
 npm test   # 单元测试；PATH 中有 pi（或设置了 PI_PATH）时也会运行集成测试
 ```
 

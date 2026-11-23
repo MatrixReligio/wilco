@@ -22,6 +22,8 @@ Recordings are normalized: UUIDs become `<uuid-N>`, session entry ids `<entry-N>
 Re-record with your local Pi (fully isolated from your own Pi setup and sessions):
 
 ```sh
-Scripts/record-fixtures.sh            # all scenarios
-Scripts/record-fixtures.sh abort      # one scenario
+cd Tools/fixture-recorder
+npm ci
+npm run record                         # all scenarios
+npm run record -- --scenarios abort    # one scenario
 ```

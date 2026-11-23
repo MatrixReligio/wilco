@@ -19,7 +19,8 @@ Recording never touches your Pi setup or running sessions:
 ```sh
 npm install
 node src/cli.ts --pi "$(command -v pi)" --out ../../Protocol/fixtures/pi --scenarios all
-# or, from the repo root: Scripts/record-fixtures.sh [name,name|all]
+npm run record                          # all scenarios into ../../Protocol/fixtures/pi, pi from PI_PATH or PATH
+npm run record -- --scenarios abort     # one scenario
 npm test   # unit tests; integration tests run when pi is on PATH (or PI_PATH is set)
 ```
 
