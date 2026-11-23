@@ -1,0 +1,32 @@
+name: Bug report / 缺陷报告
+description: Something isn't working / 功能异常
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component / 组件
+      options: [iOS app, Mac host, Relay, wilco-bridge, wilco-guard, Protocol, Docs]
+    validations: { required: true }
+  - type: input
+    id: versions
+    attributes:
+      label: Versions / 版本
+      placeholder: Wilco 0.1.0, Pi 1.6.0, iOS 26.2, macOS 26.2
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect? / 实际结果与期望结果
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / 日志
+      description: Remove any secrets or private paths. / 请删除密钥与隐私路径。
+      render: text
