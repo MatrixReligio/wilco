@@ -2,7 +2,7 @@
 
 # Protocol overview
 
-> Status: draft. The normative specification will live in [`Protocol/`](../../Protocol/) with fixtures and test vectors.
+> Status: draft. Normative specifications live in [`Protocol/`](../../Protocol/README.md): the [secure channel](../../Protocol/secure-channel.md) and the [control channel](../../Protocol/control.md).
 
 ## Layers
 
@@ -10,7 +10,7 @@
 Wilco envelope  { v, seq, ack, ch, sid, body }
       │            ch = "control" → Wilco control messages
       │            ch = "session" → body is an unmodified Pi RPC record
-Noise transport (ChaCha20-Poly1305, ordered records)
+Noise transport (XXpsk3 pairing / IK reconnect, ChaCha20-Poly1305, fragmented records)
       │
 Direct TCP  or  WebSocket via Wilco Relay
 ```
@@ -21,7 +21,7 @@ Direct TCP  or  WebSocket via Wilco Relay
 
 ## Control channel
 
-Messages Pi doesn't provide: `hello` (versions and capabilities), `workspace.list`, `session.list`, `session.open`, `session.release`, `files.*`, `host.status`, `push.register` and `device.*`.
+Messages Pi doesn't provide: `hello` (versions and capabilities), `workspace.list`, `session.list`, `session.open`, `session.release` and `host.status` (see the [control channel specification](../../Protocol/control.md)); later versions add `files.*`, `push.register` and `device.*`.
 
 ## Compatibility rules
 

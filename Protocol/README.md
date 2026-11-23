@@ -4,7 +4,10 @@
 
 This directory holds the Wilco wire protocol material: the normative specification (written alongside the reference implementation), Noise usage notes, test vectors, and **canonical Pi fixtures**.
 
-See the [Protocol overview](../docs/en/protocol.md) for the design.
+See the [Protocol overview](../docs/en/protocol.md) for the design. Normative documents:
+
+- [Secure channel](secure-channel.md): Noise handshakes, pairing invitations, confirmation codes, fragmentation and framing. Test vectors: [`test-vectors/noise/`](test-vectors/noise/README.md).
+- [Control channel](control.md): control message types, fields and resume.
 
 ## Pi fixtures
 

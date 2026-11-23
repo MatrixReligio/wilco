@@ -2,7 +2,7 @@
 
 # 协议概览
 
-> 状态：草案。正式规范将连同样本数据和测试向量一起放在 [`Protocol/`](../../Protocol/) 目录。
+> 状态：草稿。规范性文档放在 [`Protocol/`](../../Protocol/README.md)：[安全通道](../../Protocol/secure-channel.zh-CN.md)与[控制通道](../../Protocol/control.zh-CN.md)。
 
 ## 分层
 
@@ -10,7 +10,7 @@
 Wilco 信封  { v, seq, ack, ch, sid, body }
       │        ch = "control" → Wilco 控制消息
       │        ch = "session" → body 是未经修改的 Pi RPC 记录
-Noise 传输层（ChaCha20-Poly1305，有序记录）
+Noise 传输层（配对用 XXpsk3 / 重连用 IK，ChaCha20-Poly1305，分片记录）
       │
 直连 TCP  或  经 Wilco 中继的 WebSocket
 ```
@@ -21,7 +21,7 @@ Noise 传输层（ChaCha20-Poly1305，有序记录）
 
 ## 控制通道
 
-承载 Pi 本身不提供的消息：`hello`（版本与能力）、`workspace.list`、`session.list`、`session.open`、`session.release`、`files.*`、`host.status`、`push.register` 和 `device.*`。
+承载 Pi 本身不提供的消息：`hello`（版本与能力）、`workspace.list`、`session.list`、`session.open`、`session.release` 和 `host.status`（见[控制通道规范](../../Protocol/control.zh-CN.md)）；后续版本再加入 `files.*`、`push.register` 和 `device.*`。
 
 ## 兼容规则
 
