@@ -8,6 +8,7 @@ See the [Protocol overview](../docs/en/protocol.md) for the design. Normative do
 
 - [Secure channel](secure-channel.md): Noise handshakes, pairing invitations, confirmation codes, fragmentation and framing. Test vectors: [`test-vectors/noise/`](test-vectors/noise/README.md).
 - [Control channel](control.md): control message types, fields and resume.
+- [Relay](relay.md): channels, Host authentication, multiplexed device connections, relay tokens and limits. Test vectors: [`test-vectors/relay/`](test-vectors/relay/vectors.json).
 
 ## Pi fixtures
 

@@ -45,7 +45,9 @@ Everything is in the URL fragment, which clients never send to a server. The JSO
 | `h` | string | host ID |
 | `n` | string | host display name |
 | `k` | base64url | Host static X25519 public key (32 bytes) |
-| `r` | string, optional | relay channel ID |
+| `r` | string, optional | relay channel ID ([relay](relay.md)) |
+| `u` | string, optional | relay URL, when the Host uses a relay other than the default one |
+| `t` | string, optional | relay pairing token, so the device can pair through the relay |
 | `l` | array of strings | local-network hints, `host:port` |
 | `s` | base64url | one-time pairing secret (32 bytes) |
 | `x` | integer | expiry, Unix seconds; invitations last 10 minutes |

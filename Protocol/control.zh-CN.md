@@ -29,6 +29,7 @@
 | `session.release` | 设备 → Host | `sessionID` |
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
+| `relay` | Host → 设备 | `url`、`channel`、`token`：如何通过[中继](relay.zh-CN.md)连接这台 Host；Host 使用中继时在 `hello.ok` 之后发送，变化时再次发送。设备保留最新的一份。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |
 
 目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`。

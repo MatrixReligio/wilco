@@ -2,7 +2,7 @@
 
 # 协议概览
 
-> 状态：草稿。规范性文档放在 [`Protocol/`](../../Protocol/README.md)：[安全通道](../../Protocol/secure-channel.zh-CN.md)与[控制通道](../../Protocol/control.zh-CN.md)。
+> 状态：草稿。规范性文档放在 [`Protocol/`](../../Protocol/README.md)：[安全通道](../../Protocol/secure-channel.zh-CN.md)、[控制通道](../../Protocol/control.zh-CN.md)与[中继](../../Protocol/relay.zh-CN.md)。
 
 ## 分层
 
@@ -21,7 +21,7 @@ Noise 传输层（配对用 XXpsk3 / 重连用 IK，ChaCha20-Poly1305，分片�
 
 ## 控制通道
 
-承载 Pi 本身不提供的消息：`hello`（版本与能力）、`workspace.list`、`session.list`、`session.open`、`session.release` 和 `host.status`（见[控制通道规范](../../Protocol/control.zh-CN.md)）；后续版本再加入 `files.*`、`push.register` 和 `device.*`。
+承载 Pi 本身不提供的消息：`hello`（版本与能力）、`workspace.list`、`session.list`、`session.open`、`session.release`、`host.status` 和 `relay`（见[控制通道规范](../../Protocol/control.zh-CN.md)）；后续版本再加入 `files.*`、`push.register` 和 `device.*`。
 
 ## 兼容规则
 

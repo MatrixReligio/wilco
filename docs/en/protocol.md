@@ -2,7 +2,7 @@
 
 # Protocol overview
 
-> Status: draft. Normative specifications live in [`Protocol/`](../../Protocol/README.md): the [secure channel](../../Protocol/secure-channel.md) and the [control channel](../../Protocol/control.md).
+> Status: draft. Normative specifications live in [`Protocol/`](../../Protocol/README.md): the [secure channel](../../Protocol/secure-channel.md), the [control channel](../../Protocol/control.md) and the [relay](../../Protocol/relay.md).
 
 ## Layers
 
@@ -21,7 +21,7 @@ Direct TCP  or  WebSocket via Wilco Relay
 
 ## Control channel
 
-Messages Pi doesn't provide: `hello` (versions and capabilities), `workspace.list`, `session.list`, `session.open`, `session.release` and `host.status` (see the [control channel specification](../../Protocol/control.md)); later versions add `files.*`, `push.register` and `device.*`.
+Messages Pi doesn't provide: `hello` (versions and capabilities), `workspace.list`, `session.list`, `session.open`, `session.release`, `host.status` and `relay` (see the [control channel specification](../../Protocol/control.md)); later versions add `files.*`, `push.register` and `device.*`.
 
 ## Compatibility rules
 

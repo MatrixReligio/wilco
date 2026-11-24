@@ -29,6 +29,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.release` | device → Host | `sessionID` |
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
+| `relay` | Host → device | `url`, `channel`, `token`: how to reach this Host through the [relay](relay.md); sent after `hello.ok` while the Host uses a relay, and again when that changes. A device keeps the latest one. |
 | `error` | either | `code`, `message`, `requestType?` |
 
 Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`.
