@@ -18,7 +18,7 @@ so a channel belongs to whoever holds the key; there are no accounts. The pairin
 
 ## Host connection
 
-The Host opens a WebSocket to `wss://<relay>/v1/host/<channel>` and keeps it open.
+The Host opens a WebSocket to `wss://<relay>/v1/host/<channel>` and keeps it open. Hosts and devices accept a relay address only with `wss://`, except `ws://` to the same computer (`localhost`, `127.0.0.1`, `::1`) for a relay run locally during development: a plain WebSocket would show relay tokens to the network.
 
 1. Relay → Host, text: `{"type":"challenge","nonce":"<32 bytes>"}`.
 2. Host → relay, text: `{"type":"auth","key":"<Ed25519 public key>","sig":"<signature>"}`, signing

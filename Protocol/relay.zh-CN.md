@@ -18,7 +18,7 @@ channel = base64url(SHA-256(Ed25519 公钥)) 的前 22 个字符
 
 ## Host 连接
 
-Host 打开到 `wss://<relay>/v1/host/<channel>` 的 WebSocket 并保持连接。
+Host 打开到 `wss://<relay>/v1/host/<channel>` 的 WebSocket 并保持连接。Host 和设备只接受 `wss://` 开头的中继地址；唯一的例外是指向本机（`localhost`、`127.0.0.1`、`::1`）的 `ws://`，供开发时在本地运行中继使用。明文 WebSocket 会让网络上的其他人看到中继令牌。
 
 1. 中继 → Host，文本：`{"type":"challenge","nonce":"<32 字节>"}`。
 2. Host → 中继，文本：`{"type":"auth","key":"<Ed25519 公钥>","sig":"<签名>"}`，签名的内容为
