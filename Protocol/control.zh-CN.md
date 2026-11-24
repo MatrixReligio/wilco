@@ -39,6 +39,8 @@
 |---|---|
 | `unsupported_by_host` | Host 不认识该请求或命令，请更新 Wilco Host。 |
 | `unsupported_protocol` | 不支持设备的 `protocolVersion`，Host 随后关闭连接。 |
+| `pairing_rejected` | 对配对设备 `hello` 的回复：所有者拒绝了该设备。Host 随后关闭连接。 |
+| `pairing_expired` | 对配对设备 `hello` 的回复：所有者批准前邀请已结束（过期、取消、被替换或已使用）。Host 随后关闭连接。 |
 | `unknown_workspace` | 该工作区未在 Host 上共享（或已取消共享）。 |
 | `unknown_session` | 会话不存在、不在任何共享工作区内，或（对命令而言）未在当前连接上打开。 |
 | `launch_failed` | 无法启动 Pi。 |

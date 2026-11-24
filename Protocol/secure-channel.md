@@ -6,7 +6,7 @@ Every byte between a Wilco client (the device) and a Wilco Host travels through 
 
 ## Connection preamble
 
-The device's first message on a new connection, before any handshake message, is 4 bytes: `"WLC"` ‖ mode, where mode is `0x01` for a pairing handshake and `0x02` for a reconnect. It is framed like a Noise message. The Host closes the connection without a reply on any other preamble, on a pairing preamble while no invitation is active, and when the handshake and the device's `hello` have not completed within 15 seconds. (A pairing device that has sent its `hello` then waits for the owner's decision until the invitation ends.)
+The device's first message on a new connection, before any handshake message, is 4 bytes: `"WLC"` ‖ mode, where mode is `0x01` for a pairing handshake and `0x02` for a reconnect. It is framed like a Noise message. The Host closes the connection without a reply on any other preamble, on a pairing preamble while no invitation is active, and when the handshake and the device's `hello` have not completed within 15 seconds. (A pairing device that has sent its `hello` then waits for the owner's decision until the invitation ends. If the owner declines, or the invitation ends first, the Host answers the `hello` with an `error` (`pairing_rejected` or `pairing_expired`) before closing; unknown and revoked devices reconnecting get no reply. A device that hears nothing by the invitation's end gives up shortly after.)
 
 ## Handshakes
 

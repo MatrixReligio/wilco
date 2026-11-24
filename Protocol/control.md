@@ -39,6 +39,8 @@ Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, 
 |---|---|
 | `unsupported_by_host` | The Host does not know this request or command; update Wilco Host. |
 | `unsupported_protocol` | The device's `protocolVersion` is not served; the Host closes the connection. |
+| `pairing_rejected` | Reply to a pairing device's `hello`: the owner declined it. The Host closes the connection. |
+| `pairing_expired` | Reply to a pairing device's `hello`: the invitation ended (expired, cancelled, replaced or used) before the owner approved. The Host closes the connection. |
 | `unknown_workspace` | The workspace is not (or no longer) shared on the Host. |
 | `unknown_session` | The session does not exist, is outside every shared workspace, or (for commands) was not opened on this connection. |
 | `launch_failed` | Pi could not be started. |
