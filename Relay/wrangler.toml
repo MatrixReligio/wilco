@@ -15,3 +15,21 @@ MAX_FRAME_BYTES = "1048576"
 MAX_DEVICES = "32"
 CHANNEL_BYTES_PER_MINUTE = "67108864"
 IDLE_SECONDS = "600"
+
+# The hosted relay (`npm run deploy:hosted`). Self-hosted relays deploy the default environment
+# above, which serves on workers.dev. Bindings and vars are not inherited, so they are repeated.
+[env.production]
+name = "wilco-relay"
+workers_dev = true
+preview_urls = false
+routes = [{ pattern = "wilco-relay.matrixreligio.com", custom_domain = true }]
+
+[[env.production.durable_objects.bindings]]
+name = "CHANNELS"
+class_name = "ChannelObject"
+
+[env.production.vars]
+MAX_FRAME_BYTES = "1048576"
+MAX_DEVICES = "32"
+CHANNEL_BYTES_PER_MINUTE = "67108864"
+IDLE_SECONDS = "600"
