@@ -53,7 +53,7 @@ routes = [{ pattern = "relay.example.com", custom_domain = true }]
 
 在 Mac 上打开 **Wilco Host → 连接**，在 **中继** 部分的 **中继地址** 里填入你的中继地址，然后点 **使用**。Mac 连上中继后，状态会显示 **已连接**。把地址清空即可改回官方中继。
 
-如果你用命令行运行 Host，启动时加上 `wilcod --relay wss://你的中继地址`。
+如果你用命令行运行 Host，启动时使用 `wilcod run --relay wss://你的中继地址`。这个地址只对这一次运行有效；不加该选项时，Host 使用 Wilco Host 里设置的中继。
 
 更换中继时正在连接的设备会立刻收到新地址；其他设备下次在局域网内连接时会收到。新生成的配对码也会带上新地址。
 

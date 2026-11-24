@@ -1,8 +1,8 @@
 import { env, runDurableObjectAlarm, runInDurableObject, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { base64url, decodeFrame, encodeFrame, FrameType, TokenKind } from '../src/wire';
-import type { ChannelObject } from '../src/channel';
-import { connectDevice, connectHost, issue, newKey, randomID, readyHost, Socket, vectorKey, vectors } from './helpers';
+import { ChannelObject } from '../src/channel';
+import { connectDevice, connectHost, type HostKey, issue, newKey, randomID, readyHost, Socket, vectorKey, vectors } from './helpers';
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -21,6 +21,13 @@ describe('relay', () => {
   it('refuses a Host signing with a key that is not the channel\'s', async () => {
     const owner = await newKey();
     const host = await connectHost(owner, await newKey());
+    expect((await host.closure()).code).toBe(4401);
+  });
+
+  it('refuses a Host signature made for another relay', async () => {
+    // A relay the Mac signs in to cannot pass its signature on to this one.
+    const key = await newKey();
+    const host = await connectHost(key, key, 'other-relay.example');
     expect((await host.closure()).code).toBe(4401);
   });
 
@@ -192,6 +199,44 @@ describe('relay', () => {
     replacement.ws.close();
   });
 
+  /** A signed-in Host connection whose Mac lost its network: it never answers the relay's close. */
+  async function silentHost(key: HostKey): Promise<WebSocket> {
+    const stub = env.CHANNELS.get(env.CHANNELS.idFromName(key.channel));
+    return runInDurableObject(stub, (_instance: ChannelObject, state) => {
+      const pair = new WebSocketPair();
+      state.acceptWebSocket(pair[1], ['host']);
+      pair[1].serializeAttachment({ role: 'host', channel: key.channel, nonce: '', authed: true, nextConnection: 1, epoch: 'gone', since: Date.now() });
+      return pair[1];
+    });
+  }
+
+  it('sends devices to the Host connection that replaced one whose Mac went silent', async () => {
+    const key = await newKey();
+    await silentHost(key);
+    const replacement = await readyHost(key);
+    const { response, socket: device } = await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()));
+    expect(response.status).toBe(101);
+    expect(decodeFrame(await replacement.nextBinary())!.type).toBe(FrameType.open);
+    device!.send(bytes('hello'));
+    expect(decodeFrame(await replacement.nextBinary())!.type).toBe(FrameType.data);
+    replacement.ws.close();
+  });
+
+  it('a replaced Host connection that ends late leaves the new one\'s devices alone', async () => {
+    const key = await newKey();
+    const old = await silentHost(key);
+    const replacement = await readyHost(key);
+    const { socket: device } = await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()));
+    expect(decodeFrame(await replacement.nextBinary())!.type).toBe(FrameType.open);
+    // The runtime gives up on the old connection at last.
+    const stub = env.CHANNELS.get(env.CHANNELS.idFromName(key.channel));
+    await runInDurableObject(stub, (instance: ChannelObject) => instance.webSocketClose(old, 1006, ''));
+    device!.send(bytes('still here'));
+    expect(decodeFrame(await replacement.nextBinary())!.type).toBe(FrameType.data);
+    expect(device!.closed).toBeNull();
+    replacement.ws.close();
+  });
+
   it('closes a device that sends a frame over the limit', async () => {
     const key = await newKey();
     const host = await readyHost(key);
@@ -230,6 +275,59 @@ describe('relay', () => {
     await runInDurableObject(stub, (instance: ChannelObject) => instance.forgetActivity());
     expect(await runDurableObjectAlarm(stub)).toBe(true);
     expect((await device!.closure()).code).toBe(4408);
+    host.ws.close();
+  });
+  /** The channel's object as the runtime makes it again after hibernating: nothing kept in memory. */
+  function woken(channel: string, use: (object: ChannelObject) => Promise<unknown> | unknown) {
+    const stub = env.CHANNELS.get(env.CHANNELS.idFromName(channel));
+    return runInDurableObject(stub, (_instance: ChannelObject, state) => use(new ChannelObject(state, env)));
+  }
+
+  it('closes a quiet device connection although the object hibernated in between', async () => {
+    const key = await newKey();
+    const host = await readyHost(key);
+    const { socket: device } = await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()));
+    await host.nextBinary();
+    await woken(key.channel, (object) => object.sweep(Date.now() + 600_000));
+    expect((await device!.closure()).code).toBe(4408);
+    host.ws.close();
+  });
+
+  it('keeps counting a channel\'s rate across hibernation', async () => {
+    const key = await newKey();
+    const host = await readyHost(key);
+    const { socket: device } = await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()));
+    await host.nextBinary();
+    for (let i = 0; i < 7; i++) device!.send(new Uint8Array(2000));
+    for (let i = 0; i < 7; i++) await host.nextBinary();
+    // 14000 of 16384 bytes this minute are used.
+    const allowed = await woken(key.channel, (object) => (object as unknown as { count(bytes: number): boolean }).count(4000));
+    expect(allowed).toBe(false);
+    host.ws.close();
+  });
+
+  it('turns devices away from a Host that stopped pinging, and drops it', async () => {
+    const key = await newKey();
+    const host = await readyHost(key);
+    const stub = env.CHANNELS.get(env.CHANNELS.idFromName(key.channel));
+    // Its last sign of life was long ago: the Mac lost its network without closing.
+    await runInDurableObject(stub, (_instance: ChannelObject, state) => {
+      for (const ws of state.getWebSockets('host')) ws.serializeAttachment({ ...ws.deserializeAttachment(), since: 0 });
+    });
+    expect((await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()))).response.status).toBe(503);
+    expect((await host.closure()).code).toBe(4408);
+  });
+
+  it('lets devices reach a Host that pings', async () => {
+    const key = await newKey();
+    const host = await readyHost(key);
+    host.send('ping');
+    expect(await host.next()).toBe('pong');
+    const stub = env.CHANNELS.get(env.CHANNELS.idFromName(key.channel));
+    await runInDurableObject(stub, (_instance: ChannelObject, state) => {
+      for (const ws of state.getWebSockets('host')) ws.serializeAttachment({ ...ws.deserializeAttachment(), since: 0 });
+    });
+    expect((await connectDevice(key.channel, await issue(key, TokenKind.device, randomID()))).response.status).toBe(101);
     host.ws.close();
   });
 });

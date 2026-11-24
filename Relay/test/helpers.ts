@@ -104,14 +104,14 @@ async function upgrade(path: string): Promise<Response> {
 }
 
 /** A Host connected and authenticated with `key`. */
-export async function connectHost(key: HostKey, signWith: HostKey = key): Promise<Socket> {
+export async function connectHost(key: HostKey, signWith: HostKey = key, relay = 'relay.test'): Promise<Socket> {
   const response = await upgrade('/v1/host/' + key.channel);
   if (response.status !== 101 || !response.webSocket) throw new Error('host upgrade failed: ' + response.status);
   const socket = new Socket(response.webSocket);
   const challenge = JSON.parse((await socket.next()) as string);
   if (challenge.type !== 'challenge') throw new Error('expected a challenge');
   const nonce = fromBase64url(challenge.nonce)!;
-  const signature = await sign(signWith, authMessage(key.channel, nonce));
+  const signature = await sign(signWith, authMessage(relay, key.channel, nonce));
   socket.send(JSON.stringify({ type: 'auth', key: base64url(signWith.publicKey), sig: base64url(signature) }));
   return socket;
 }

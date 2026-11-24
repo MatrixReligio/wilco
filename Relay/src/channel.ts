@@ -7,8 +7,8 @@ import {
 
 /** What a WebSocket is to this channel, kept across hibernation. */
 type Attachment =
-  | { role: 'host'; channel: string; nonce: string; authed: boolean; nextConnection: number; epoch: string; since: number }
-  | { role: 'device'; connection: number; token: string; epoch: string };
+  | { role: 'host'; channel: string; relay: string; nonce: string; authed: boolean; nextConnection: number; epoch: string; since: number }
+  | { role: 'device'; connection: number; token: string; epoch: string; active: number };
 
 const Close = {
   normal: 1000,
@@ -24,9 +24,8 @@ const Close = {
 
 /** One Host channel: its Host connection, the device connections multiplexed over it. */
 export class ChannelObject extends DurableObject<Env> {
-  /** Last traffic per device connection (in memory; a woken object starts the clock again). */
-  private activity = new Map<string, number>();
-  private window = { start: 0, bytes: 0 };
+  /** This minute's traffic; also saved, so hibernating does not start the count again. */
+  private window: RateWindow | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -41,17 +40,20 @@ export class ChannelObject extends DurableObject<Env> {
   private static authMs = 10_000;
   /** Unauthenticated Host connections a channel holds at once. */
   private static maxPending = 4;
+  /** A Host silent this long (three missed pings, Protocol/relay.md) has lost its network. */
+  private static hostSilenceMs = 90_000;
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const [, , kind, channel] = url.pathname.split('/');
     if (!isChannelID(channel)) return new Response('not found', { status: 404 });
-    return kind === 'host' ? this.acceptHost(channel) : this.acceptDevice(channel, url.searchParams.get('token'));
+    return kind === 'host' ? this.acceptHost(channel, url.host) : this.acceptDevice(channel, url.searchParams.get('token'));
   }
 
   // MARK: Host
 
-  private async acceptHost(channel: string): Promise<Response> {
+  /** `relay`: this relay's name as the Host reached it, which its signature must cover. */
+  private async acceptHost(channel: string, relay: string): Promise<Response> {
     // A full set of unauthenticated connections makes room by closing the oldest, so nobody can
     // lock the Host out by holding them: the Host answers its challenge long before it is evicted.
     const pending = this.ctx.getWebSockets('host')
@@ -67,7 +69,7 @@ export class ChannelObject extends DurableObject<Env> {
     // The epoch tells this Host connection's device connections from an earlier one's.
     const epoch = base64url(crypto.getRandomValues(new Uint8Array(9)));
     const since = Date.now();
-    server.serializeAttachment({ role: 'host', channel, nonce, authed: false, nextConnection: 1, epoch, since } satisfies Attachment);
+    server.serializeAttachment({ role: 'host', channel, relay, nonce, authed: false, nextConnection: 1, epoch, since } satisfies Attachment);
     server.send(JSON.stringify({ type: 'challenge', nonce }));
     await this.wakeBy(since + ChannelObject.authMs);
     return new Response(null, { status: 101, webSocket: client });
@@ -83,9 +85,15 @@ export class ChannelObject extends DurableObject<Env> {
       if (typeof message !== 'string' || !(await this.authenticate(state, message))) {
         return close(ws, Close.unauthorized, 'authentication failed');
       }
-      for (const other of this.ctx.getWebSockets('host')) if (other !== ws) close(other, Close.replaced, 'replaced');
+      // A replaced connection stops counting at once: its Mac may never answer the close (a lost
+      // network), and its late close or error must not end the new connection's devices.
+      for (const other of this.ctx.getWebSockets('host')) {
+        if (other === ws) continue;
+        const otherState = other.deserializeAttachment() as Extract<Attachment, { role: 'host' }>;
+        if (otherState.authed) other.serializeAttachment({ ...otherState, authed: false, nonce: '' } satisfies Attachment);
+        close(other, Close.replaced, 'replaced');
+      }
       for (const device of this.ctx.getWebSockets('device')) close(device, Close.hostGone, 'host reconnected');
-      this.activity.clear();
       ws.serializeAttachment({ ...state, authed: true, nonce: '' } satisfies Attachment);
       ws.send(JSON.stringify({ type: 'ready' }));
       return;
@@ -106,7 +114,7 @@ export class ChannelObject extends DurableObject<Env> {
     if (!device) return;
     if (frame.type === FrameType.close) return close(device, Close.normal, 'closed by host');
     if (!this.count(frame.payload.byteLength)) return close(device, Close.rateLimited, 'rate limited');
-    this.activity.set(connectionTag(state.epoch, frame.connection), Date.now());
+    this.touch(device, device.deserializeAttachment() as Extract<Attachment, { role: 'device' }>);
     device.send(frame.payload);
   }
 
@@ -117,7 +125,7 @@ export class ChannelObject extends DurableObject<Env> {
     const key = fromBase64url(auth.key), signature = fromBase64url(auth.sig), nonce = fromBase64url(state.nonce);
     if (!key || !signature || !nonce || nonce.length !== 32) return false;
     if ((await channelFor(key)) !== state.channel) return false;
-    if (!(await verify(key, signature, authMessage(state.channel, nonce)))) return false;
+    if (!(await verify(key, signature, authMessage(state.relay, state.channel, nonce)))) return false;
     await this.ctx.storage.put('hostKey', auth.key);
     return true;
   }
@@ -137,6 +145,10 @@ export class ChannelObject extends DurableObject<Env> {
     if (await this.ctx.storage.get('revoked:' + id)) return new Response('token revoked', { status: 403 });
     const host = this.host();
     if (!host) return new Response('host not connected', { status: 503 });
+    if (this.silent(host)) {
+      this.dropHost(host, Close.idle, 'no ping');
+      return new Response('host not connected', { status: 503 });
+    }
     if (this.ctx.getWebSockets('device').length >= this.maxDevices) return new Response('too many connections', { status: 429 });
 
     const hostState = host.deserializeAttachment() as Extract<Attachment, { role: 'host' }>;
@@ -144,8 +156,7 @@ export class ChannelObject extends DurableObject<Env> {
     host.serializeAttachment({ ...hostState, nextConnection: connection + 1 } satisfies Attachment);
     const { 0: client, 1: server } = new WebSocketPair();
     this.ctx.acceptWebSocket(server, ['device', connectionTag(hostState.epoch, connection), 'token:' + id]);
-    server.serializeAttachment({ role: 'device', connection, token: id, epoch: hostState.epoch } satisfies Attachment);
-    this.activity.set(connectionTag(hostState.epoch, connection), Date.now());
+    server.serializeAttachment({ role: 'device', connection, token: id, epoch: hostState.epoch, active: Date.now() } satisfies Attachment);
     host.send(encodeFrame(FrameType.open, connection, token.id));
     await this.wakeBy(Date.now() + this.idleMs / 2);
     return new Response(null, { status: 101, webSocket: client });
@@ -159,16 +170,42 @@ export class ChannelObject extends DurableObject<Env> {
     if (!host || (host.deserializeAttachment() as Extract<Attachment, { role: 'host' }>).epoch !== state.epoch) {
       return close(ws, Close.hostGone, 'host not connected');
     }
-    this.activity.set(connectionTag(state.epoch, state.connection), Date.now());
+    this.touch(ws, state);
     host.send(encodeFrame(FrameType.data, state.connection, new Uint8Array(message)));
+  }
+
+  /** Notes traffic on a device connection, writing it down only when it is stale by a twentieth of the idle time. */
+  private touch(ws: WebSocket, state: Extract<Attachment, { role: 'device' }>) {
+    const now = Date.now();
+    if (now - state.active >= this.idleMs / 20) ws.serializeAttachment({ ...state, active: now } satisfies Attachment);
+  }
+
+  /** Whether the Host has said nothing, not even a ping, for too long. */
+  private silent(host: WebSocket): boolean {
+    const state = host.deserializeAttachment() as Extract<Attachment, { role: 'host' }>;
+    const pinged = this.ctx.getWebSocketAutoResponseTimestamp(host)?.getTime() ?? 0;
+    return Date.now() - Math.max(state.since, pinged) >= ChannelObject.hostSilenceMs;
+  }
+
+  /** Ends a Host connection now, with the device connections that went through it. */
+  private dropHost(host: WebSocket, code: number, reason: string) {
+    const state = host.deserializeAttachment() as Extract<Attachment, { role: 'host' }>;
+    host.serializeAttachment({ ...state, authed: false, nonce: '' } satisfies Attachment);
+    close(host, code, reason);
+    for (const device of this.ctx.getWebSockets('device')) close(device, Close.hostGone, 'host disconnected');
   }
 
   /** Counts bytes against the channel's rate; false once it is used up. */
   private count(bytes: number): boolean {
     const now = Date.now();
-    if (now - this.window.start >= 60_000) this.window = { start: now, bytes: 0 };
-    this.window.bytes += bytes;
-    return this.window.bytes <= this.bytesPerMinute;
+    let window = (this.window ??= this.ctx.storage.kv.get<RateWindow>('rate') ?? { start: 0, bytes: 0 });
+    if (now - window.start >= 60_000) window = this.window = { start: now, bytes: 0 };
+    // Saved each time it passes another sixteenth of the limit: a light channel never writes.
+    const step = this.bytesPerMinute / 16;
+    const before = Math.floor(window.bytes / step);
+    window.bytes += bytes;
+    if (Math.floor(window.bytes / step) > before) this.ctx.storage.kv.put('rate', window);
+    return window.bytes <= this.bytesPerMinute;
   }
 
   // MARK: WebSocket events
@@ -191,7 +228,6 @@ export class ChannelObject extends DurableObject<Env> {
   private ended(ws: WebSocket) {
     const state = ws.deserializeAttachment() as Attachment | null;
     if (state?.role === 'device') {
-      this.activity.delete(connectionTag(state.epoch, state.connection));
       const host = this.host();
       // Only the Host connection that opened it hears that it ended.
       if (host && (host.deserializeAttachment() as Extract<Attachment, { role: 'host' }>).epoch === state.epoch) {
@@ -199,7 +235,6 @@ export class ChannelObject extends DurableObject<Env> {
       }
     } else if (state?.role === 'host' && state.authed) {
       for (const device of this.ctx.getWebSockets('device')) close(device, Close.hostGone, 'host disconnected');
-      this.activity.clear();
     }
   }
 
@@ -211,7 +246,11 @@ export class ChannelObject extends DurableObject<Env> {
 
   /** Closes Host connections that never authenticated and device connections quiet for too long. */
   async alarm() {
-    const now = Date.now();
+    await this.sweep(Date.now());
+  }
+
+  /** The alarm's work, as of `now`. */
+  async sweep(now: number) {
     let next = Infinity;
     for (const ws of this.ctx.getWebSockets('host')) {
       const state = ws.deserializeAttachment() as Extract<Attachment, { role: 'host' }>;
@@ -222,10 +261,7 @@ export class ChannelObject extends DurableObject<Env> {
     const devices = this.ctx.getWebSockets('device');
     for (const device of devices) {
       const state = device.deserializeAttachment() as Extract<Attachment, { role: 'device' }>;
-      const tag = connectionTag(state.epoch, state.connection);
-      const last = this.activity.get(tag);
-      if (last === undefined) this.activity.set(tag, now);
-      else if (now - last >= this.idleMs) close(device, Close.idle, 'idle');
+      if (now - state.active >= this.idleMs) close(device, Close.idle, 'idle');
     }
     if (this.ctx.getWebSockets('device').length > 0) next = Math.min(next, now + this.idleMs / 2);
     if (next !== Infinity) await this.ctx.storage.setAlarm(next);
@@ -241,8 +277,15 @@ export class ChannelObject extends DurableObject<Env> {
 
   /** Tests: makes every device connection look idle. */
   forgetActivity() {
-    for (const key of this.activity.keys()) this.activity.set(key, 0);
+    for (const ws of this.ctx.getWebSockets('device')) {
+      ws.serializeAttachment({ ...(ws.deserializeAttachment() as Extract<Attachment, { role: 'device' }>), active: 0 } satisfies Attachment);
+    }
   }
+}
+
+interface RateWindow {
+  start: number;
+  bytes: number;
 }
 
 function connectionTag(epoch: string, connection: number): string {

@@ -13,7 +13,8 @@ const channel = b64(createHash('sha256').update(publicKey).digest()).slice(0, 22
 const z = Buffer.from([0]);
 
 const nonce = bytes(0xa0, 32);
-const authMessage = Buffer.concat([Buffer.from('wilco-relay/1'), z, Buffer.from('host'), z, Buffer.from(channel), z, nonce]);
+const relay = 'relay.example.com';
+const authMessage = Buffer.concat([Buffer.from('wilco-relay/1'), z, Buffer.from('host'), z, Buffer.from(relay), z, Buffer.from(channel), z, nonce]);
 
 function token(kind, id, expiry) {
   const body = Buffer.alloc(26);
@@ -37,7 +38,7 @@ console.log(JSON.stringify({
   ed25519Seed: hex(seed),
   publicKey: b64(publicKey),
   channel,
-  auth: { nonce: b64(nonce), message: hex(authMessage), signature: b64(sign(null, authMessage, privateKey)) },
+  auth: { relay, nonce: b64(nonce), message: hex(authMessage), signature: b64(sign(null, authMessage, privateKey)) },
   deviceToken: token(1, deviceID, 0),
   pairingToken: token(2, bytes(0x30, 16), 1800000000),
   frames: [

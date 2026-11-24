@@ -3,9 +3,10 @@
   "publicKey": "ebVWLo_mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ",
   "channel": "ZbYGc9btiEvwHCwiLYKtoH",
   "auth": {
+    "relay": "relay.example.com",
     "nonce": "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8",
-    "message": "77696c636f2d72656c61792f3100686f7374005a6259476339627469457677484377694c594b746f4800a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
-    "signature": "O8CaomsFeTcp1dbmPTpd0B7C39l6s_JDTTH0UiBwWjGncl7OzuesbI2rCVJE8U1s0Ga7btABPRP1BHMLyY4MCw"
+    "message": "77696c636f2d72656c61792f3100686f73740072656c61792e6578616d706c652e636f6d005a6259476339627469457677484377694c594b746f4800a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+    "signature": "PPVIyLu1Y4-SaNMycq7PYExKK4s6xvHIQgxAnAtmgRMlM2D8ghC1JKn75Z_MELw_cfuhSmxo9i17PFLDbMWPCg"
   },
   "deviceToken": {
     "kind": 1,

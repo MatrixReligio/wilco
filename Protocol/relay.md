@@ -22,14 +22,14 @@ The Host opens a WebSocket to `wss://<relay>/v1/host/<channel>` and keeps it ope
 
 1. Relay → Host, text: `{"type":"challenge","nonce":"<32 bytes>"}`.
 2. Host → relay, text: `{"type":"auth","key":"<Ed25519 public key>","sig":"<signature>"}`, signing
-   `"wilco-relay/1" ‖ 0x00 ‖ "host" ‖ 0x00 ‖ channel ‖ 0x00 ‖ nonce`.
-3. The relay checks that the key's channel ID is the one in the URL and that the signature is valid, then answers `{"type":"ready"}`. Otherwise it closes the socket with code 4401. A nonce is used once.
+   `"wilco-relay/1" ‖ 0x00 ‖ "host" ‖ 0x00 ‖ relay ‖ 0x00 ‖ channel ‖ 0x00 ‖ nonce`, where `relay` is the relay's host name as the Host reached it, in lowercase, followed by `:` and the port when the address names a port other than the default (443 for `wss://`, 80 for `ws://`); an IPv6 address is written in brackets. Naming the relay keeps one relay from passing a Host's signature on to another.
+3. The relay checks that the key's channel ID is the one in the URL and that the signature is valid for its own name, then answers `{"type":"ready"}`. Otherwise it closes the socket with code 4401. A nonce is used once.
 
 The Host has 10 seconds to authenticate, and anything other than `auth` before `ready` closes the connection (4401). A channel holds at most 4 connections that have not authenticated yet; a new one closes the oldest (4401), so holding them cannot lock the Host out. Only an authenticated Host connection counts: until there is one, devices get `503`.
 
 A newly authenticated Host connection replaces an older one for the same channel; the relay closes the older one and every device connection that went through it.
 
-The Host may send the text message `ping` at any time; the relay answers `pong`.
+The Host may send the text message `ping` at any time; the relay answers `pong`. The Host pings every 30 seconds. A Host connection that has sent no `ping` for 90 seconds (counting from when it connected) is taken to have lost its network: the next device that connects gets `503`, and the relay closes that Host connection (4408) with its device connections.
 
 ### Multiplexed device connections
 
@@ -99,7 +99,7 @@ The hosted relay applies these limits; a self-hosted relay can change them.
 | `1012` | the Host disconnected or reconnected (device connections) |
 | `4401` | the Host failed or did not finish authentication |
 | `4403` | the device's token was revoked |
-| `4408` | the device connection was idle too long |
+| `4408` | the device connection was idle too long, or the Host stopped pinging |
 | `4409` | a newer Host connection replaced this one |
 | `4429` | the channel's rate limit was exceeded |
 

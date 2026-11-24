@@ -53,7 +53,7 @@ Your relay address is then `wss://relay.example.com`.
 
 On your Mac, open **Wilco Host → Connection**. Under **Relay**, enter your relay address in **Relay address** and click **Use**. The status shows **Connected** once your Mac has reached it. Leave the address empty to go back to the hosted relay.
 
-If you run the Host from the command line, start it with `wilcod --relay wss://your-relay-address`.
+If you run the Host from the command line, start it with `wilcod run --relay wss://your-relay-address`. The address applies to that run only; without the option, the Host uses the relay set in Wilco Host.
 
 Devices that are connected when you change the relay are told the new address at once. Others learn it the next time they connect on your local network. New pairing codes include it.
 

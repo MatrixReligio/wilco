@@ -13,7 +13,7 @@ describe('wire formats (Protocol/test-vectors/relay)', () => {
   });
 
   it('builds and verifies the Host authentication', async () => {
-    const message = authMessage(vectors.channel, fromBase64url(vectors.auth.nonce)!);
+    const message = authMessage(vectors.auth.relay, vectors.channel, fromBase64url(vectors.auth.nonce)!);
     expect(hex(message)).toBe(vectors.auth.message);
     expect(await verify(publicKey, fromBase64url(vectors.auth.signature)!, message)).toBe(true);
     expect(await verify(publicKey, fromBase64url(vectors.auth.signature)!, message.slice(1))).toBe(false);

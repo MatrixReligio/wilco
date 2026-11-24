@@ -47,8 +47,9 @@ export async function channelFor(publicKey: Uint8Array): Promise<string> {
   return base64url(digest).slice(0, 22);
 }
 
-export function authMessage(channel: string, nonce: Uint8Array): Uint8Array {
-  return concat(encoder.encode('wilco-relay/1'), zero, encoder.encode('host'), zero, encoder.encode(channel), zero, nonce);
+/** What a Host signs to prove it owns `channel`; `relay` (the relay's host, with a port other than the default) ties it to this relay. */
+export function authMessage(relay: string, channel: string, nonce: Uint8Array): Uint8Array {
+  return concat(encoder.encode('wilco-relay/1'), zero, encoder.encode('host'), zero, encoder.encode(relay), zero, encoder.encode(channel), zero, nonce);
 }
 
 export function tokenMessage(channel: string, body: Uint8Array): Uint8Array {
