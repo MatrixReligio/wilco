@@ -25,7 +25,7 @@ The Host opens a WebSocket to `wss://<relay>/v1/host/<channel>` and keeps it ope
    `"wilco-relay/1" ‖ 0x00 ‖ "host" ‖ 0x00 ‖ channel ‖ 0x00 ‖ nonce`.
 3. The relay checks that the key's channel ID is the one in the URL and that the signature is valid, then answers `{"type":"ready"}`. Otherwise it closes the socket with code 4401. A nonce is used once.
 
-The Host has 10 seconds to authenticate, and anything other than `auth` before `ready` closes the connection (4401). A channel holds at most 4 connections that have not authenticated yet; more are refused with `429`. Only an authenticated Host connection counts: until there is one, devices get `503`.
+The Host has 10 seconds to authenticate, and anything other than `auth` before `ready` closes the connection (4401). A channel holds at most 4 connections that have not authenticated yet; a new one closes the oldest (4401), so holding them cannot lock the Host out. Only an authenticated Host connection counts: until there is one, devices get `503`.
 
 A newly authenticated Host connection replaces an older one for the same channel; the relay closes the older one and every device connection that went through it.
 

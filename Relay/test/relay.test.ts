@@ -65,6 +65,22 @@ describe('relay', () => {
     expect((await pending.closure()).code).toBe(4401);
   });
 
+  it('lets the Host in while others hold unauthenticated connections', async () => {
+    const key = await newKey();
+    const squatters: Socket[] = [];
+    for (let i = 0; i < 6; i++) {
+      const response = await SELF.fetch('https://relay.test/v1/host/' + key.channel, { headers: { Upgrade: 'websocket' } });
+      expect(response.status).toBe(101);
+      const socket = new Socket(response.webSocket!);
+      await socket.next();
+      squatters.push(socket);
+    }
+    const host = await readyHost(key);
+    // The oldest squatters made room; the Host is not one of the ones closed.
+    expect((await squatters[0].closure()).code).toBe(4401);
+    host.ws.close();
+  });
+
   it('closes a device that sends text', async () => {
     const key = await newKey();
     const host = await readyHost(key);

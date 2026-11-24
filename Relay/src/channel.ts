@@ -52,8 +52,15 @@ export class ChannelObject extends DurableObject<Env> {
   // MARK: Host
 
   private async acceptHost(channel: string): Promise<Response> {
-    const pending = this.ctx.getWebSockets('host').filter((ws) => !(ws.deserializeAttachment() as Extract<Attachment, { role: 'host' }>).authed);
-    if (pending.length >= ChannelObject.maxPending) return new Response('too many connections', { status: 429 });
+    // A full set of unauthenticated connections makes room by closing the oldest, so nobody can
+    // lock the Host out by holding them: the Host answers its challenge long before it is evicted.
+    const pending = this.ctx.getWebSockets('host')
+      .map((ws) => ({ ws, state: ws.deserializeAttachment() as Extract<Attachment, { role: 'host' }> }))
+      .filter(({ state }) => !state.authed)
+      .sort((a, b) => a.state.since - b.state.since);
+    for (const { ws } of pending.slice(0, Math.max(0, pending.length - ChannelObject.maxPending + 1))) {
+      close(ws, Close.unauthorized, 'too many unauthenticated connections');
+    }
     const { 0: client, 1: server } = new WebSocketPair();
     const nonce = base64url(crypto.getRandomValues(new Uint8Array(32)));
     this.ctx.acceptWebSocket(server, ['host']);
