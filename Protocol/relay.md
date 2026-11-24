@@ -25,6 +25,8 @@ The Host opens a WebSocket to `wss://<relay>/v1/host/<channel>` and keeps it ope
    `"wilco-relay/1" ‖ 0x00 ‖ "host" ‖ 0x00 ‖ channel ‖ 0x00 ‖ nonce`.
 3. The relay checks that the key's channel ID is the one in the URL and that the signature is valid, then answers `{"type":"ready"}`. Otherwise it closes the socket with code 4401. A nonce is used once.
 
+The Host has 10 seconds to authenticate, and anything other than `auth` before `ready` closes the connection (4401). A channel holds at most 4 connections that have not authenticated yet; more are refused with `429`. Only an authenticated Host connection counts: until there is one, devices get `503`.
+
 A newly authenticated Host connection replaces an older one for the same channel; the relay closes the older one and every device connection that went through it.
 
 The Host may send the text message `ping` at any time; the relay answers `pong`.
@@ -55,7 +57,7 @@ A device opens a WebSocket to
 wss://<relay>/v1/connect/<channel>?token=<relay token>
 ```
 
-Each binary WebSocket message is one secure-channel message (the connection preamble, handshake messages, then transport messages), exactly as over TCP but without the length prefix. Before upgrading, the relay answers:
+Each binary WebSocket message is one secure-channel message; a text message closes the connection (code 1003). Each message is one secure-channel message (the connection preamble, handshake messages, then transport messages), exactly as over TCP but without the length prefix. Before upgrading, the relay answers:
 
 | Status | When |
 |---|---|
@@ -86,6 +88,20 @@ The hosted relay applies these limits; a self-hosted relay can change them.
 - At most 32 device connections per channel.
 - A channel forwards at most 64 MiB per minute; beyond that the relay closes the device connection that exceeded it (code 4429).
 - A device connection with no traffic for 10 minutes is closed. Live connections are never idle: the device checks on a quiet Host every 15 seconds.
+
+## Close codes
+
+| Code | Meaning |
+|---|---|
+| `1000` | closed normally, or by the Host with a `close` frame |
+| `1003` | a device sent a text message |
+| `1009` | a message over the size limit |
+| `1012` | the Host disconnected or reconnected (device connections) |
+| `4401` | the Host failed or did not finish authentication |
+| `4403` | the device's token was revoked |
+| `4408` | the device connection was idle too long |
+| `4409` | a newer Host connection replaced this one |
+| `4429` | the channel's rate limit was exceeded |
 
 ## Test vectors
 

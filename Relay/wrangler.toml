@@ -1,0 +1,17 @@
+name = "wilco-relay"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[[durable_objects.bindings]]
+name = "CHANNELS"
+class_name = "ChannelObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChannelObject"]
+
+[vars]
+MAX_FRAME_BYTES = "1048576"
+MAX_DEVICES = "32"
+CHANNEL_BYTES_PER_MINUTE = "67108864"
+IDLE_SECONDS = "600"
