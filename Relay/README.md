@@ -8,6 +8,8 @@ Each Host channel is one Durable Object. The Host keeps one WebSocket open to it
 
 ## Develop
 
+Needs Node.js 22.12 or later.
+
 ```sh
 npm ci
 npm test            # runs in the Workers runtime (workerd), with small limits

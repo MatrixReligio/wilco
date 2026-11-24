@@ -8,6 +8,8 @@
 
 ## 开发
 
+需要 Node.js 22.12 或更高版本。
+
 ```sh
 npm ci
 npm test            # 在 Workers 运行时（workerd）中运行，使用较小的限制

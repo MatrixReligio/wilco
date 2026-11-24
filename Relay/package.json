@@ -5,6 +5,9 @@
   "description": "Wilco relay: forwards end-to-end encrypted traffic between Wilco devices and Hosts",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
