@@ -1,5 +1,5 @@
 // wilco-guard's rules: which tool calls need the owner's approval. Pure functions, no Pi imports.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -15,7 +15,8 @@ export type GuardPolicy = {
 
 export const DEFAULT_POLICY: Readonly<GuardPolicy> = Object.freeze({ dangerousCommands: true, outsideWorkspace: true, allBash: false });
 
-export type Reason = "dangerous" | "outsideWorkspace" | "bash";
+/** `protected`: the call touches wilco-guard's own files (its policy and code); always asked. */
+export type Reason = "dangerous" | "outsideWorkspace" | "bash" | "protected";
 
 export type Assessment =
   | { ask: false }
@@ -44,13 +45,21 @@ export function loadPolicy(file: string | undefined): GuardPolicy {
   return policy;
 }
 
-/** Decides whether a tool call needs approval under the policy. Never throws. */
-export function assess(toolName: string, input: unknown, cwd: string, policy: GuardPolicy, home: string = os.homedir()): Assessment {
+/**
+ * Decides whether a tool call needs approval under the policy. Never throws. Calls that touch
+ * `protectedPaths` (wilco-guard's own policy and code) are always asked about, whatever the policy.
+ */
+export function assess(
+  toolName: string, input: unknown, cwd: string, policy: GuardPolicy, home: string = os.homedir(), protectedPaths: string[] = [],
+): Assessment {
   const fields = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
   if (toolName === "bash") {
     const command = fields.command;
     if (typeof command !== "string" || command.trim() === "") return { ask: false };
     const summary = `run: ${firstLine(command)}`;
+    if (mentions(command, protectedPaths, home)) {
+      return question("protected", summary, `Pi wants to run a command that touches wilco-guard's own files:\n\n${command}`, "wilco-guard's files");
+    }
     const label = policy.dangerousCommands ? dangerousCommand(command) : undefined;
     if (label) {
       return question("dangerous", summary, `Pi wants to run a command that looks dangerous (${label}):\n\n${command}`, label);
@@ -58,12 +67,15 @@ export function assess(toolName: string, input: unknown, cwd: string, policy: Gu
     if (policy.allBash) return question("bash", summary, `Pi wants to run a command:\n\n${command}`);
     return { ask: false };
   }
-  if ((toolName === "write" || toolName === "edit") && policy.outsideWorkspace) {
+  if (toolName === "write" || toolName === "edit") {
     const target = fields.path;
     if (typeof target !== "string" || target.trim() === "") return { ask: false };
-    const resolved = resolvePath(target, cwd, home);
-    if (isInside(resolved, cwd)) return { ask: false };
     const verb = toolName === "write" ? "write" : "edit";
+    const resolved = resolvePath(target, cwd, home);
+    if (protectedPaths.some((dir) => isInside(resolved, dir))) {
+      return question("protected", `${verb}: ${target}`, `Pi wants to ${verb} one of wilco-guard's own files:\n\n${resolved}`, "wilco-guard's files");
+    }
+    if (!policy.outsideWorkspace || isInside(resolved, cwd)) return { ask: false };
     return question("outsideWorkspace", `${verb}: ${target}`, `Pi wants to ${verb} a file outside the workspace:\n\n${resolved}`);
   }
   return { ask: false };
@@ -88,9 +100,40 @@ function resolvePath(target: string, cwd: string, home: string): string {
   return path.resolve(cwd, p);
 }
 
+/** Whether `target` lies within `root`, after following symbolic links (a link out of the root is outside). */
 function isInside(target: string, root: string): boolean {
-  const relative = path.relative(path.resolve(root), target);
+  const real = realResolve(target), realRoot = realResolve(path.resolve(root));
+  if (real === undefined || realRoot === undefined) return false;
+  const relative = path.relative(realRoot, real);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+/** The path with every symbolic link in its existing part resolved; undefined when that fails. */
+function realResolve(target: string): string | undefined {
+  let existing = path.resolve(target);
+  const rest: string[] = [];
+  try {
+    while (!existsSync(existing)) {
+      const parent = path.dirname(existing);
+      if (parent === existing) return existing;
+      rest.unshift(path.basename(existing));
+      existing = parent;
+    }
+    return path.join(realpathSync(existing), ...rest);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether a command names one of the directories (quotes, escapes and `~` taken into account). */
+function mentions(command: string, directories: string[], home: string): boolean {
+  if (directories.length === 0) return false;
+  const words = lex(command).flatMap((t) => ("word" in t ? [t.word] : []));
+  const texts = [command, ...words.map((w) => (w === "~" ? home : w.startsWith("~/") ? path.join(home, w.slice(2)) : w))];
+  return directories.some((dir) => {
+    const forms = [dir, dir.startsWith(home + "/") ? "~" + dir.slice(home.length) : dir];
+    return texts.some((text) => forms.some((form) => text.includes(form)));
+  });
 }
 
 // MARK: Commands
@@ -156,11 +199,30 @@ function lex(command: string): Token[] {
 }
 
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "fish", "ksh"]);
-const WRAPPERS = new Set(["command", "exec", "nohup", "time", "env", "xargs", "nice"]);
+/** Shell words that may come before a command. */
+const RESERVED = new Set(["if", "then", "else", "elif", "do", "while", "until", "{", "!", "time"]);
+/** Commands that run another command, with the options of each that take a value. */
+const WRAPPERS: Record<string, Set<string>> = {
+  command: new Set(),
+  exec: new Set(["-a"]),
+  nohup: new Set(),
+  env: new Set(["-u", "-C", "-P", "--unset", "--chdir"]),
+  nice: new Set(["-n", "--adjustment"]),
+  timeout: new Set(["-s", "-k", "--signal", "--kill-after"]),
+  xargs: new Set(["-I", "-L", "-n", "-P", "-s", "-E", "-d", "-a", "-J", "-R"]),
+  stdbuf: new Set(["-i", "-o", "-e"]),
+  ionice: new Set(["-c", "-n", "-p"]),
+  caffeinate: new Set(["-t", "-w"]),
+  chronic: new Set(),
+};
+/** Global git options that take a separate value. */
+const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix", "--config-env"]);
+const MAX_DEPTH = 4;
 const SAFE_DEVICES = /^\/dev\/(null|stdout|stderr|stdin|tty|fd\/\d+)$/;
 
 /** A short label for why a command looks dangerous, or undefined. */
-export function dangerousCommand(command: string): string | undefined {
+export function dangerousCommand(command: string, depth = 0): string | undefined {
+  if (depth > MAX_DEPTH) return "indirect command";
   const tokens = lex(command);
   // Redirections into a device.
   for (let i = 0; i < tokens.length - 1; i++) {
@@ -199,24 +261,49 @@ export function dangerousCommand(command: string): string | undefined {
   }
   close();
   for (const { words, piped } of segments) {
-    const label = judge(words, piped);
+    const label = judge(words, piped, depth);
     if (label) return label;
   }
   return undefined;
 }
 
-function judge(all: string[], piped: boolean): string | undefined {
+function judge(all: string[], piped: boolean, depth: number): string | undefined {
   let words = all;
-  // Leading variable assignments and harmless wrappers.
+  // Reserved words, variable assignments and commands that run another command.
   for (;;) {
     const first = words[0];
     if (first === undefined) return undefined;
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(first)) words = words.slice(1);
-    else if (WRAPPERS.has(path.basename(first))) words = words.slice(1).filter((w, i) => i > 0 || !w.startsWith("-"));
-    else break;
+    const base = path.basename(first);
+    if (RESERVED.has(first) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(first)) {
+      words = words.slice(1);
+    } else if (Object.hasOwn(WRAPPERS, base)) {
+      const valueOptions = WRAPPERS[base];
+      let i = 1;
+      while (i < words.length) {
+        const word = words[i];
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) i += 1;
+        else if (word.startsWith("-")) i += valueOptions.has(word) ? 2 : 1;
+        else break;
+      }
+      if (base === "timeout") i += 1; // the duration
+      words = words.slice(i);
+    } else {
+      break;
+    }
   }
-  const name = path.basename(words[0] ?? "");
+  const command = words[0] ?? "";
+  // A command name that is computed ($CMD, $(...)) cannot be judged.
+  if (command.includes("$") || command.includes("`") || command.startsWith("-")) return "indirect command";
+  const name = path.basename(command);
   const args = words.slice(1);
+  if (name === "eval") return dangerousCommand(args.join(" "), depth + 1);
+  if (SHELLS.has(name)) {
+    const flag = args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
+    if (flag >= 0) {
+      const script = args.slice(flag + 1).find((a) => !a.startsWith("-"));
+      if (script !== undefined) return dangerousCommand(script, depth + 1);
+    }
+  }
   const shortFlags = args.filter((a) => /^-[A-Za-z]+$/.test(a)).join("");
   switch (name) {
     case "sudo":
@@ -249,7 +336,7 @@ function judge(all: string[], piped: boolean): string | undefined {
 
 function judgeGit(args: string[]): string | undefined {
   let i = 0;
-  while (i < args.length && args[i].startsWith("-")) i += args[i] === "-C" || args[i] === "-c" ? 2 : 1;
+  while (i < args.length && args[i].startsWith("-")) i += GIT_VALUE_OPTIONS.has(args[i]) ? 2 : 1;
   const sub = args[i];
   const rest = args.slice(i + 1);
   const shortFlags = rest.filter((a) => /^-[A-Za-z]+$/.test(a)).join("");

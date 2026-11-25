@@ -29,7 +29,9 @@ const done = { text: ["Done."] };
 async function withPi(turns: object[], run: (pi: Driver) => Promise<void>) {
   const llm = await startMockLLM({ port: 0, script: { turns } as never });
   const iso = await isolate(llm.url);
-  const policyFile = path.join(iso.root, "guard-policy.json");
+  // Like Wilco Host: the policy sits in its own folder, which wilco-guard protects.
+  await mkdir(path.join(iso.root, "guard"));
+  const policyFile = path.join(iso.root, "guard", "policy.json");
   const child = spawn(await resolvePiExecutable(piPath!), iso.args({ extensions: [guard] } as never), {
     cwd: iso.cwd,
     env: { ...iso.env, WILCO_GUARD_POLICY: policyFile },

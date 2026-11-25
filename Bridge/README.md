@@ -14,6 +14,8 @@ What it asks about:
 | Writes outside the workspace | on | `write` and `edit` on a path outside the session's working folder |
 | Every command (strict) | off | every `bash` command |
 
+Commands are also asked about when their target cannot be read (`$CMD`, `$(…)` in the command position); wrappers such as `env`, `nice`, `timeout`, `xargs`, `sh -c` and `eval` are looked through. Touching wilco-guard's own folder (its policy and code) is always asked about, whatever the rules say.
+
 The rules are a safety net, not a sandbox: a determined command can still get past simple pattern matching (for example through a script file). Use strict mode when that matters.
 
 ### With Wilco Host

@@ -38,7 +38,30 @@ describe("dangerous commands", () => {
     expect(result).toMatchObject({ ask: true, reason: "dangerous", label });
   });
 
-  test.each(["rm file.txt", "git push", "git push origin main", "ls -rf", "echo rm -rf", "git status", "grep -r sudo src", "npm test", "cat /dev/null"])(
+  test.each([
+    ["nice -n 10 rm -rf x", "rm -r"],
+    ["env -i PATH=/bin rm -rf x", "rm -r"],
+    ["env -u HOME rm -rf x", "rm -r"],
+    ["timeout 5 rm -rf x", "rm -r"],
+    ["find . -name x | xargs rm -rf", "rm -r"],
+    ["sh -c 'rm -rf x'", "rm -r"],
+    ["bash -lc \"sudo ls\"", "sudo"],
+    ["zsh -e -c 'git push -f'", "git push --force"],
+    ["eval \"rm -rf x\"", "rm -r"],
+    ["if true; then rm -rf x; fi", "rm -r"],
+    ["for f in a b; do rm -rf $f; done", "rm -r"],
+    ["{ rm -rf x; }", "rm -r"],
+    ["! sudo true", "sudo"],
+    ["$CMD -rf x", "indirect command"],
+    ["\"$(echo rm)\" -rf x", "indirect command"],
+    ["git --git-dir .git push --force", "git push --force"],
+    ["git -C repo -c a=b push -f", "git push --force"],
+    ["/bin/rm -rf x", "rm -r"],
+  ])("%s asks despite the wrapping (%s)", (command, label) => {
+    expect(bash(command)).toMatchObject({ ask: true, reason: "dangerous", label });
+  });
+
+  test.each(["rm file.txt", "git push", "git push origin main", "ls -rf", "echo rm -rf", "git status", "grep -r sudo src", "npm test", "cat /dev/null", "sh -c 'ls -la'", "env FOO=1 npm test", "time make"])(
     "%s does not ask",
     (command) => {
       expect(bash(command)).toEqual({ ask: false });
@@ -47,6 +70,49 @@ describe("dangerous commands", () => {
 
   test("turned off, dangerous commands run", () => {
     expect(bash("rm -rf build", { ...on, dangerousCommands: false })).toEqual({ ask: false });
+  });
+});
+
+describe("Wilco's own files", () => {
+  const protectedDir = "/Users/someone/Library/Application Support/Wilco Host/extensions/wilco-guard";
+  const guarded = (tool: string, input: object, policy: GuardPolicy = { dangerousCommands: false, outsideWorkspace: false, allBash: false }) =>
+    assess(tool, input, cwd, policy, home, [protectedDir]);
+
+  test.each([
+    `echo '{}' > "${protectedDir}/policy.json"`,
+    "rm ~/Library/'Application Support'/'Wilco Host'/extensions/wilco-guard/policy.json",
+    "cat ~/Library/Application\\ Support/Wilco\\ Host/extensions/wilco-guard/guard.ts",
+  ])("a command touching them always asks: %s", (command) => {
+    expect(guarded("bash", { command })).toMatchObject({ ask: true, reason: "protected" });
+  });
+
+  test("writing them always asks", () => {
+    expect(guarded("write", { path: `${protectedDir}/policy.json` })).toMatchObject({ ask: true, reason: "protected" });
+    expect(guarded("edit", { path: "~/Library/Application Support/Wilco Host/extensions/wilco-guard/rules.ts" })).toMatchObject({ ask: true, reason: "protected" });
+  });
+
+  test("other commands are unaffected", () => {
+    expect(guarded("bash", { command: "ls" })).toEqual({ ask: false });
+  });
+});
+
+describe("symbolic links", () => {
+  test("a link inside the workspace that points outside asks", async () => {
+    const { mkdtemp, mkdir, symlink, rm: remove } = await import("node:fs/promises");
+    const root = await mkdtemp(path.join(os.tmpdir(), "wilco-guard-link-"));
+    try {
+      const work = path.join(root, "work");
+      const outside = path.join(root, "outside");
+      await mkdir(work);
+      await mkdir(outside);
+      await symlink(outside, path.join(work, "link"));
+      expect(assess("write", { path: "link/new.txt" }, work, on, home)).toMatchObject({ ask: true, reason: "outsideWorkspace" });
+      expect(assess("write", { path: "plain/new.txt" }, work, on, home)).toEqual({ ask: false });
+      // The workspace itself reached through a link (macOS /tmp is /private/tmp) is still inside.
+      expect(assess("write", { path: path.join(work, "a.txt") }, work, on, home)).toEqual({ ask: false });
+    } finally {
+      await remove(root, { recursive: true, force: true });
+    }
   });
 });
 
