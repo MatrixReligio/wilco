@@ -25,7 +25,7 @@
 | `session.list` | 设备 → Host | `workspaceID?` |
 | `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
 | `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?` |
-| `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"` |
+| `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"`；`pendingDialogs?`：会话中仍在等待的询问的 id（设备不再显示其他询问） |
 | `session.release` | 设备 → Host | `sessionID` |
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
@@ -87,4 +87,4 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 
 客户端在 `session.open` 中带上它最后看到的 `epoch` 和 `lastSeq`。如果缺失的会话记录还在缓冲里，Host 会补发（`replaying`）。如果 epoch 变了，或者缺口已经不在缓冲中，Host 回复 `resync`，客户端改用 Pi 的 `get_entries` 游标和 `get_state` 追上进度。
 
-设备在实时流上落后太多时，Host 从它最后发出的那条记录继续发送；如果这些记录已不在缓冲中，Host 会先主动发送一条不带 `id` 的 `session.opened`，其中 `replay: "resync"`。
+设备在实时流上落后太多时，Host 从它最后发出的那条记录继续发送；如果这些记录已不在缓冲中，Host 会先主动发送一条不带 `id` 的 `session.opened`，其中 `replay: "resync"` 并带有 `pendingDialogs`，随后以 `seq` 0 发送仍在等待的询问。

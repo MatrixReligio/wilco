@@ -25,7 +25,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.list` | device → Host | `workspaceID?` |
 | `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"`; `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
 | `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?` |
-| `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"` |
+| `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"`; `pendingDialogs?`: the ids of the questions still waiting in the session (a device stops showing any other) |
 | `session.release` | device → Host | `sessionID` |
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
@@ -87,4 +87,4 @@ Envelopes with `"ch":"session"` and `sid` carry Pi RPC for one session that the 
 
 `session.open` with the `epoch` and `lastSeq` the client last saw lets the Host replay missed session records from its buffer (`replaying`). If the epoch changed or the gap is no longer buffered, the Host answers `resync` and the client catches up with Pi's `get_entries` cursor and `get_state`.
 
-If a device falls too far behind a live stream, the Host continues it from the last record it sent; if those records are no longer buffered it first sends an unsolicited `session.opened` (no `id`) with `replay: "resync"`.
+If a device falls too far behind a live stream, the Host continues it from the last record it sent; if those records are no longer buffered it first sends an unsolicited `session.opened` (no `id`) with `replay: "resync"` and `pendingDialogs`, followed by the questions still waiting with `seq` 0.
