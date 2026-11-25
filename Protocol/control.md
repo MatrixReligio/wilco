@@ -23,7 +23,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `workspace.list` | device → Host | none |
 | `workspace.list.result` | Host → device | `workspaces[]`: `{id, name, path}` (path is display-only, home shown as `~`) |
 | `session.list` | device → Host | `workspaceID?` |
-| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?}`; `writer` is `"host"` or `"tui"`; `updatedAt` is ISO 8601 with fractional seconds |
+| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"`; `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
 | `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?` |
 | `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"` |
 | `session.release` | device → Host | `sessionID` |
@@ -33,9 +33,14 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `guard.policy.get` | device → Host | none |
 | `guard.policy.set` | device → Host | `policy`: `{dangerousCommands, outsideWorkspace, allBash}` (booleans; a missing rule keeps its default: `true`, `true`, `false`) |
 | `guard.policy.result` | Host → device | `policy`: the rules now in force. Reply to both requests. |
+| `session.activity` | Host → device | `sessionID`, `workspaceID`, `activity`: sent, without `id`, for every live session right after `hello.ok` and whenever its activity changes. A session that stopped gets a last one with state `idle`. |
+| `dialog.answer` | device → Host | `sessionID`, `response`: a Pi `extension_ui_response` object. Answers a waiting question whether or not the session is open on this connection. |
+| `dialog.answered` | Host → device | `sessionID`, `dialogID`: reply to `dialog.answer`. |
 | `error` | either | `code`, `message`, `requestType?` |
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`).
+`activity` is `{state, steps, startedAt?, tool?, pendingDialogs}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now.
+
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below).
 
 wilco-guard's questions are ordinary `confirm` extension UI requests whose `title` starts with `wilco-guard: `. They have no `timeout`: Pi waits until a device answers.
 
@@ -50,7 +55,8 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `unknown_workspace` | The workspace is not (or no longer) shared on the Host. |
 | `unknown_session` | The session does not exist, is outside every shared workspace, or (for commands) was not opened on this connection. |
 | `launch_failed` | Pi could not be started. |
-| `invalid_command` | A session command is not a JSON object with a `type`. |
+| `invalid_command` | A session command is not a JSON object with a `type`, or a `dialog.answer` does not carry an `extension_ui_response`. |
+| `unknown_dialog` | The question was already answered (by any device), expired, or never asked. The answer is not passed to Pi. |
 | `use_session_open` | The command would change the session (`new_session`, `switch_session`, `fork`, `clone`); use `session.open`. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |
@@ -66,7 +72,8 @@ Envelopes with `"ch":"session"` and `sid` carry Pi RPC for one session that the 
 - **Host → device, stream records:** Pi's events, numbered by `seq` from 1 within the session's `epoch`. These are what resume replays.
 - **Host → device, responses:** the response to this device's command, or an error in Pi's response shape (`{"type":"response","id","command","success":false,"error","code"}`, codes as above), with `seq` 0: responses are not part of the stream and are never replayed. A response from Pi carries `ack`: the `seq` of the last stream record Pi wrote before it (0 if none in this epoch). Responses and records travel separately and can arrive in either order; `ack` says which records a response such as `get_messages` already reflects. One Host record also uses `seq` 0: `{"type":"wilco_session_stopped"}`, sent when the Host resumes a stream for a device that fell behind and finds that the session has stopped meanwhile.
 - Host file-system paths outside shared workspaces are replaced with `"<outside-workspace>"`, and session file paths with opaque `"session:…"` ids.
-- Two records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; and `{"type":"wilco_records_dropped","count"}`, in place of Pi output that could not be read or was not a JSON object (such output is never forwarded).
+- Three records come from the Host rather than Pi: `{"type":"wilco_session_stopped","code"?}`, the last record of a stream when the session's Pi process ended; `{"type":"wilco_records_dropped","count"}`, in place of Pi output that could not be read or was not a JSON object (such output is never forwarded); and `{"type":"wilco_dialog_closed","id"}`, when a question (an `extension_ui_request` dialog: `select`, `confirm`, `input`, `editor`) stops waiting because a device answered it or its `timeout` passed.
+- **Waiting questions.** The Host keeps every dialog Pi asked until it is answered, it expires, or the session stops. Each takes one answer, from the session channel or from `dialog.answer`; later answers get `unknown_dialog`. When `session.opened` says `resync`, the questions still waiting follow it again with `seq` 0, so a device that missed them (or reconnected) can still answer; a device keeps one question per `id`. A session with a waiting question is never shut down as idle.
 
 ## Resume
 

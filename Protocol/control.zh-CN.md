@@ -23,7 +23,7 @@
 | `workspace.list` | 设备 → Host | 无 |
 | `workspace.list.result` | Host → 设备 | `workspaces[]`：`{id, name, path}`（path 仅用于显示，主目录显示为 `~`） |
 | `session.list` | 设备 → Host | `workspaceID?` |
-| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?}`；`writer` 为 `"host"` 或 `"tui"`；`updatedAt` 为带小数秒的 ISO 8601 时间 |
+| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
 | `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?` |
 | `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"` |
 | `session.release` | 设备 → Host | `sessionID` |
@@ -33,9 +33,14 @@
 | `guard.policy.get` | 设备 → Host | 无 |
 | `guard.policy.set` | 设备 → Host | `policy`：`{dangerousCommands, outsideWorkspace, allBash}`（布尔值；缺少的规则保持默认值：`true`、`true`、`false`） |
 | `guard.policy.result` | Host → 设备 | `policy`：当前生效的规则。两个请求都以它回复。 |
+| `session.activity` | Host → 设备 | `sessionID`、`workspaceID`、`activity`：不带 `id`；`hello.ok` 之后立即为每个运行中的会话发送一次，之后活动每次变化都会发送。会话停止时最后发送一次，状态为 `idle`。 |
+| `dialog.answer` | 设备 → Host | `sessionID`、`response`：一个 Pi `extension_ui_response` 对象。无论本连接是否打开了该会话，都可以回答正在等待的询问。 |
+| `dialog.answered` | Host → 设备 | `sessionID`、`dialogID`：对 `dialog.answer` 的回复。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）。
+`activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。
+
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）。
 
 wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilco-guard: ` 开头，且没有 `timeout`：Pi 会一直等到某台设备作答。
 
@@ -50,7 +55,8 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `unknown_workspace` | 该工作区未在 Host 上共享（或已取消共享）。 |
 | `unknown_session` | 会话不存在、不在任何共享工作区内，或（对命令而言）未在当前连接上打开。 |
 | `launch_failed` | 无法启动 Pi。 |
-| `invalid_command` | 会话命令不是带 `type` 的 JSON 对象。 |
+| `invalid_command` | 会话命令不是带 `type` 的 JSON 对象，或 `dialog.answer` 携带的不是 `extension_ui_response`。 |
+| `unknown_dialog` | 该询问已被（任意设备）回答、已过期，或从未提出。这个回答不会转给 Pi。 |
 | `use_session_open` | 该命令会切换会话（`new_session`、`switch_session`、`fork`、`clone`），请改用 `session.open`。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |
@@ -66,7 +72,8 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 - **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
 - **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。来自 Pi 的响应带有 `ack`：Pi 在它之前写出的最后一条流记录的 `seq`（本 epoch 内没有则为 0）。响应和流记录分开传输，到达顺序不定；`ack` 说明 `get_messages` 这类响应已经包含了哪些记录。另有一条 Host 记录也使用 `seq` 0：`{"type":"wilco_session_stopped"}`，在 Host 为落后的设备恢复流、却发现会话已经停止时发送。
 - 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。
-- 有两种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，代替无法读取或不是 JSON 对象的 Pi 输出（这类输出不会被转发）。
+- 有三种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，代替无法读取或不是 JSON 对象的 Pi 输出（这类输出不会被转发）；`{"type":"wilco_dialog_closed","id"}`，表示某个询问（`extension_ui_request` 对话框：`select`、`confirm`、`input`、`editor`）因某台设备作答或超过 `timeout` 而不再等待。
+- **等待中的询问。**Host 会保留 Pi 提出的每个对话框，直到它被回答、过期或会话停止。每个询问只接受一个回答，可以来自会话通道或 `dialog.answer`；之后的回答得到 `unknown_dialog`。当 `session.opened` 为 `resync` 时，仍在等待的询问会以 `seq` 0 再次发送，让错过它们（或重新连接）的设备仍能作答；设备对同一 `id` 只保留一个询问。有询问在等待的会话不会因空闲而被关闭。
 
 ## 断线续传
 
