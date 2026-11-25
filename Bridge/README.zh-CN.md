@@ -34,6 +34,8 @@ pi install npm:@matrixreligio/wilco
 { "dangerousCommands": true, "outsideWorkspace": true, "allBash": false }
 ```
 
+触碰策略文件所在的文件夹，或 `WILCO_GUARD_PROTECT` 中逐行列出的文件夹（Wilco Host 会列出它的状态文件夹），无论规则如何都会询问。两个变量读取后即从环境中移除，Pi 运行的命令不会继承它们。命令中的 `$(…)` 和反引号替换也会被检查，包括双引号内的。
+
 询问通过 `ctx.ui.confirm` 发出，标题以 `wilco-guard: ` 开头。没有可用的 UI 时（例如 `pi -p`），本应询问的调用会被直接阻止。
 
 ## wilco-bridge

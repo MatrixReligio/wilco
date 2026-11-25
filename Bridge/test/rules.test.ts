@@ -57,11 +57,15 @@ describe("dangerous commands", () => {
     ["git --git-dir .git push --force", "git push --force"],
     ["git -C repo -c a=b push -f", "git push --force"],
     ["/bin/rm -rf x", "rm -r"],
+    ['echo "$(rm -rf build)"', "rm -r"],
+    ['x="`sudo ls`"', "sudo"],
+    ['echo "a $(echo "$(git push -f)") b"', "git push --force"],
+    ['echo "$(cd x && rm -rf y)"', "rm -r"],
   ])("%s asks despite the wrapping (%s)", (command, label) => {
     expect(bash(command)).toMatchObject({ ask: true, reason: "dangerous", label });
   });
 
-  test.each(["rm file.txt", "git push", "git push origin main", "ls -rf", "echo rm -rf", "git status", "grep -r sudo src", "npm test", "cat /dev/null", "sh -c 'ls -la'", "env FOO=1 npm test", "time make"])(
+  test.each(["rm file.txt", "git push", "git push origin main", "ls -rf", "echo rm -rf", "git status", "grep -r sudo src", "npm test", "cat /dev/null", "sh -c 'ls -la'", "env FOO=1 npm test", "time make", 'echo "$(date)"', 'echo "cost: \\$(5)"', "echo '$(rm -rf x)'"])(
     "%s does not ask",
     (command) => {
       expect(bash(command)).toEqual({ ask: false });

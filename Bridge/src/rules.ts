@@ -152,8 +152,22 @@ function mentions(command: string, directories: string[], home: string): boolean
 
 type Token = { op: string } | { word: string };
 
-/** Splits a shell command into words and operators, honouring quotes and backslashes. */
-function lex(command: string): Token[] {
+/** The end of the command substitution whose text starts at `start` (just after "$("), or the end of the text. */
+function closingParen(text: string, start: number): number {
+  let depth = 1;
+  for (let k = start; k < text.length; k++) {
+    if (text[k] === "\\") k++;
+    else if (text[k] === "(") depth++;
+    else if (text[k] === ")" && --depth === 0) return k;
+  }
+  return text.length;
+}
+
+/**
+ * Splits a shell command into words and operators, honouring quotes and backslashes. Command
+ * substitutions inside double quotes still run, so their text is added to `nested` to be checked too.
+ */
+function lex(command: string, nested: string[] = []): Token[] {
   const tokens: Token[] = [];
   let word = "";
   let inWord = false;
@@ -173,6 +187,20 @@ function lex(command: string): Token[] {
       let j = i + 1;
       while (j < command.length && command[j] !== '"') {
         if (command[j] === "\\" && j + 1 < command.length) j++;
+        else if (command[j] === "$" && command[j + 1] === "(") {
+          const end = closingParen(command, j + 2);
+          nested.push(command.slice(j + 2, end));
+          word += command.slice(j, end + 1);
+          j = end + 1;
+          continue;
+        } else if (command[j] === "`") {
+          const end = command.indexOf("`", j + 1);
+          const stop = end < 0 ? command.length : end;
+          nested.push(command.slice(j + 1, stop));
+          word += command.slice(j, stop + 1);
+          j = stop + 1;
+          continue;
+        }
         word += command[j];
         j++;
       }
@@ -235,7 +263,12 @@ const SAFE_DEVICES = /^\/dev\/(null|stdout|stderr|stdin|tty|fd\/\d+)$/;
 /** A short label for why a command looks dangerous, or undefined. */
 export function dangerousCommand(command: string, depth = 0): string | undefined {
   if (depth > MAX_DEPTH) return "indirect command";
-  const tokens = lex(command);
+  const nested: string[] = [];
+  const tokens = lex(command, nested);
+  for (const inner of nested) {
+    const label = dangerousCommand(inner, depth + 1);
+    if (label) return label;
+  }
   // Redirections into a device.
   for (let i = 0; i < tokens.length - 1; i++) {
     const t = tokens[i], next = tokens[i + 1];

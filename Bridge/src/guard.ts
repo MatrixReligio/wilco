@@ -14,9 +14,15 @@ type GuardAPI = { on(event: "tool_call", handler: (event: ToolCallEvent, ctx: Gu
 export default function wilcoGuard(pi: GuardAPI): void {
   // Read once and removed, so the commands Pi runs do not inherit where the policy lives. The
   // policy's folder (with wilco-guard's code) is protected: touching it is always asked about.
+  // WILCO_GUARD_PROTECT names more folders to protect, one per line (the Host's state folder).
   const policyFile = process.env.WILCO_GUARD_POLICY;
+  const protect = process.env.WILCO_GUARD_PROTECT;
   delete process.env.WILCO_GUARD_POLICY;
-  const protectedPaths = policyFile ? [path.dirname(path.resolve(policyFile))] : [];
+  delete process.env.WILCO_GUARD_PROTECT;
+  const protectedPaths = [
+    ...(policyFile ? [path.dirname(path.resolve(policyFile))] : []),
+    ...(protect ?? "").split("\n").filter((line) => line.trim() !== "").map((line) => path.resolve(line)),
+  ];
   pi.on("tool_call", async (event, ctx) => {
     const result = assess(event.toolName, event.input, ctx.cwd, loadPolicy(policyFile), os.homedir(), protectedPaths);
     if (!result.ask) return undefined;
