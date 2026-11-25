@@ -36,11 +36,18 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.activity` | Host → device | `sessionID`, `workspaceID`, `activity`: sent, without `id`, for every live session right after `hello.ok` and whenever its activity changes. A session that stopped gets a last one with state `idle`. |
 | `dialog.answer` | device → Host | `sessionID`, `response`: a Pi `extension_ui_response` object. Answers a waiting question whether or not the session is open on this connection. |
 | `dialog.answered` | Host → device | `sessionID`, `dialogID`: reply to `dialog.answer`. |
+| `push.register` | device → Host | `token` (APNs, 64–200 hex digits), `environment` (`sandbox` or `production`), `key` (base64 of the device's 32-byte Curve25519 public key that notifications are sealed to), `events` (any of `approval`, `finished`, `failed`). Replaces the device's earlier registration; a device sends it on every connection. Reply: `ok`. |
+| `push.unregister` | device → Host | The device gets no more notifications. Reply: `ok`. |
+| `activity.register` | device → Host | `sessionID`, `token` (the Live Activity's push token): the Host keeps this Live Activity current while the session runs, and ends it when a run ends. Needs `push.register` first. Reply: `ok`. |
+| `activity.end` | device → Host | `sessionID`: the device ended its Live Activity. Reply: `ok`. |
+| `ok` | Host → device | The request was done. |
 | `error` | either | `code`, `message`, `requestType?` |
 
 `activity` is `{state, steps, startedAt?, tool?, pendingDialogs}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now.
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below).
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below). A Host offers `push` when it sends notifications.
+
+Notifications ([push.md](push.md)) follow these rules. A device hears only about the `events` it registered, and nothing about a session it has open on a live connection. `approval` is sent when a question starts waiting; `finished` when a run that took at least 10 seconds, or waited for an answer, ends; `failed` when a run ends with an error. Aborted runs are not announced. A token the push service reports dead is forgotten, and a revoked device's registration is dropped.
 
 wilco-guard's questions are ordinary `confirm` extension UI requests whose `title` starts with `wilco-guard: `. They have no `timeout`: Pi waits until a device answers.
 
@@ -57,6 +64,7 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `launch_failed` | Pi could not be started. |
 | `invalid_command` | A session command is not a JSON object with a `type`, or a `dialog.answer` does not carry an `extension_ui_response`. |
 | `unknown_dialog` | The question was already answered (by any device), expired, or never asked. The answer is not passed to Pi. |
+| `push_not_registered` | `activity.register` before `push.register`. |
 | `use_session_open` | The command would change the session (`new_session`, `switch_session`, `fork`, `clone`); use `session.open`. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |

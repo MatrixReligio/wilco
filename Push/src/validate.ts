@@ -32,6 +32,8 @@ export interface ActivityPush {
   event: 'update' | 'end';
   state: ActivityState;
   staleAfter?: number;
+  /** For `end`: seconds until the system removes the activity (0: at once). */
+  dismissAfter?: number;
 }
 
 export type Push = AlertPush | ActivityPush;
@@ -40,6 +42,8 @@ export type Parsed = { ok: true; push: Push } | { ok: false; error: string };
 export const MAX_SEALED_BYTES = 2800;
 const MAX_STEPS = 100_000;
 const MAX_STALE_AFTER = 8 * 3600;
+/** ActivityKit keeps an ended activity on the Lock Screen for at most four hours. */
+const MAX_DISMISS_AFTER = 4 * 3600;
 
 class Invalid extends Error {}
 
@@ -110,5 +114,9 @@ function parse(body: unknown): Push {
   }
   const push: ActivityPush = { kind, token, environment, event, state };
   if (o.staleAfter !== undefined) push.staleAfter = integer(o.staleAfter, 'staleAfter', 1, MAX_STALE_AFTER);
+  if (o.dismissAfter !== undefined) {
+    if (event !== 'end') fail('dismissAfter is only for end');
+    push.dismissAfter = integer(o.dismissAfter, 'dismissAfter', 0, MAX_DISMISS_AFTER);
+  }
   return push;
 }

@@ -36,11 +36,18 @@
 | `session.activity` | Host → 设备 | `sessionID`、`workspaceID`、`activity`：不带 `id`；`hello.ok` 之后立即为每个运行中的会话发送一次，之后活动每次变化都会发送。会话停止时最后发送一次，状态为 `idle`。 |
 | `dialog.answer` | 设备 → Host | `sessionID`、`response`：一个 Pi `extension_ui_response` 对象。无论本连接是否打开了该会话，都可以回答正在等待的询问。 |
 | `dialog.answered` | Host → 设备 | `sessionID`、`dialogID`：对 `dialog.answer` 的回复。 |
+| `push.register` | 设备 → Host | `token`（APNs 令牌，64–200 位十六进制数字）、`environment`（`sandbox` 或 `production`）、`key`（设备用于接收加密通知的 32 字节 Curve25519 公钥，base64）、`events`（`approval`、`finished`、`failed` 的任意组合）。替换设备之前的登记；设备每次连接都会发送。回复：`ok`。 |
+| `push.unregister` | 设备 → Host | 设备不再接收通知。回复：`ok`。 |
+| `activity.register` | 设备 → Host | `sessionID`、`token`（实时活动的推送令牌）：会话运行期间 Host 让这个实时活动保持最新，并在一次运行结束时结束它。需要先 `push.register`。回复：`ok`。 |
+| `activity.end` | 设备 → Host | `sessionID`：设备已结束它的实时活动。回复：`ok`。 |
+| `ok` | Host → 设备 | 请求已完成。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |
 
 `activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）。
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）。Host 发送通知时会提供 `push`。
+
+通知（[push.zh-CN.md](push.zh-CN.md)）遵循以下规则。设备只会收到它登记的 `events`，并且不会收到它正在某个在线连接上打开的会话的通知。询问开始等待时发送 `approval`；用时至少 10 秒、或中途等待过回答的运行结束时发送 `finished`；运行以错误结束时发送 `failed`。被中止的运行不发送通知。推送服务报告失效的令牌会被删除，被撤销设备的登记也会被删除。
 
 wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilco-guard: ` 开头，且没有 `timeout`：Pi 会一直等到某台设备作答。
 
@@ -57,6 +64,7 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `launch_failed` | 无法启动 Pi。 |
 | `invalid_command` | 会话命令不是带 `type` 的 JSON 对象，或 `dialog.answer` 携带的不是 `extension_ui_response`。 |
 | `unknown_dialog` | 该询问已被（任意设备）回答、已过期，或从未提出。这个回答不会转给 Pi。 |
+| `push_not_registered` | 在 `push.register` 之前发送了 `activity.register`。 |
 | `use_session_open` | 该命令会切换会话（`new_session`、`switch_session`、`fork`、`clone`），请改用 `session.open`。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |

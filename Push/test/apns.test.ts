@@ -45,6 +45,8 @@ describe('apns payloads', () => {
       aps: { timestamp: 1_800_000_000, event: 'update', 'stale-date': 1_800_000_600,
              'content-state': { status: 'needsYou', steps: 3, startedAt: 785000000, needsApproval: true, dialog: 'run: rm -rf build' } },
     });
+    const ended = apnsRequest(push(activity({ event: 'end', dismissAfter: 900 }, { needsApproval: false, dialog: undefined })), 't', 100);
+    expect(JSON.parse(ended.body).aps).toMatchObject({ event: 'end', 'dismissal-date': 1000 });
     const quiet = apnsRequest(push(activity({}, { needsApproval: false, status: 'working', dialog: undefined })), 't', 5);
     expect(quiet.headers['apns-priority']).toBe('5');
     expect(JSON.parse(quiet.body).aps['content-state']).toEqual({ status: 'working', steps: 3, startedAt: 785000000, needsApproval: false });

@@ -37,6 +37,7 @@ function alert(push: AlertPush, topic: string, url: string): APNsRequest {
 function activity(push: ActivityPush, topic: string, url: string, now: number): APNsRequest {
   const aps: Record<string, unknown> = { timestamp: now, event: push.event, 'content-state': push.state };
   if (push.staleAfter !== undefined) aps['stale-date'] = now + push.staleAfter;
+  if (push.dismissAfter !== undefined) aps['dismissal-date'] = now + push.dismissAfter;
   return {
     url,
     headers: {

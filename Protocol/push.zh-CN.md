@@ -51,10 +51,11 @@ APNs 收到 `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-con
 | `token`、`environment` | 同上；令牌是该实时活动的推送令牌 |
 | `kind` | `"activity"` |
 | `event` | `"update"` 或 `"end"` |
-| `state` | `{status, steps, startedAt, needsApproval, dialog?}`：`status` 为 `"working"`、`"needsYou"`、`"idle"` 或 `"failed"`；`steps` 为 0–100000；`startedAt` 为自 2001-01-01 UTC 起的整秒数（ActivityKit 读取日期的方式）；`dialog` 最多 64 个字符 |
+| `state` | `{status, steps, startedAt, needsApproval, dialog?}`：`status` 为 `"working"`、`"needsYou"`、`"idle"` 或 `"failed"`；`steps` 为 0–100000；`startedAt` 为自 2001-01-01 UTC 起的整秒数（ActivityKit 读取日期的方式）；`dialog` 是正在等待的询问的 `id`（最多 64 个字符），而不是它的文字 |
 | `staleAfter` | 可选，秒数（1–28800），超过后系统把该活动显示为已过时 |
+| `dismissAfter` | 可选，仅用于 `end`：秒数（0–14400），之后系统移除已结束的活动；0 表示立即移除 |
 
-APNs 收到 `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…}}`，推送类型 `liveactivity`；`needsApproval` 为真时优先级 10，否则为 5。实时活动的内容不是秘密：它就是锁屏上显示的内容。
+APNs 收到 `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…,"dismissal-date"?:…}}`，推送类型 `liveactivity`；`needsApproval` 为真时优先级 10，否则为 5。实时活动的内容没有加密，因此不包含会话中的任何文字：只有计数、时间和询问的 id。
 
 回复：
 

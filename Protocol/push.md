@@ -51,10 +51,11 @@ A Live Activity update:
 | `token`, `environment` | as above; the token is the Live Activity's push token |
 | `kind` | `"activity"` |
 | `event` | `"update"` or `"end"` |
-| `state` | `{status, steps, startedAt, needsApproval, dialog?}`: `status` is `"working"`, `"needsYou"`, `"idle"` or `"failed"`; `steps` 0–100000; `startedAt` whole seconds since 2001-01-01 UTC (how ActivityKit reads dates); `dialog` at most 64 characters |
+| `state` | `{status, steps, startedAt, needsApproval, dialog?}`: `status` is `"working"`, `"needsYou"`, `"idle"` or `"failed"`; `steps` 0–100000; `startedAt` whole seconds since 2001-01-01 UTC (how ActivityKit reads dates); `dialog` is the waiting question's `id` (at most 64 characters), never its text |
 | `staleAfter` | optional seconds (1–28800) after which the system shows the activity as out of date |
+| `dismissAfter` | optional, only with `end`: seconds (0–14400) until the system removes the ended activity; 0 removes it at once |
 
-APNs receives `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…}}`, push type `liveactivity`, priority 10 while `needsApproval`, otherwise 5. The activity's content is not secret: it is what the Lock Screen shows.
+APNs receives `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…,"dismissal-date"?:…}}`, push type `liveactivity`, priority 10 while `needsApproval`, otherwise 5. The activity's content is not sealed, so it carries no text from the session: counts, times, and the question's id.
 
 Replies:
 

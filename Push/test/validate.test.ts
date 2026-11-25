@@ -13,6 +13,7 @@ describe('validate', () => {
     expect(parsePush(alert({ collapse: 'session-1', category: 'failed' }))).toMatchObject({ ok: true });
     expect(parsePush(activity())).toMatchObject({ ok: true, push: { kind: 'activity', event: 'update' } });
     expect(parsePush(activity({ event: 'end', staleAfter: 900 }, { dialog: undefined, needsApproval: false, status: 'idle' }))).toMatchObject({ ok: true });
+    expect(parsePush(activity({ event: 'end', dismissAfter: 0 }))).toMatchObject({ ok: true, push: { dismissAfter: 0 } });
   });
 
   it.each([
@@ -38,6 +39,8 @@ describe('validate', () => {
     ['dialog too long', activity({}, { dialog: 'd'.repeat(65) })],
     ['state missing', activity({ state: undefined })],
     ['staleAfter', activity({ staleAfter: -5 })],
+    ['dismissAfter', activity({ event: 'end', dismissAfter: 14401 })],
+    ['dismissAfter on an update', activity({ dismissAfter: 60 })],
   ])('refuses a bad %s', (_name, body) => {
     expect(error(body)).toBeTypeOf('string');
   });
