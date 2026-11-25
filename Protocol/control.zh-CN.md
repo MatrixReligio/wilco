@@ -23,7 +23,7 @@
 | `workspace.list` | 设备 → Host | 无 |
 | `workspace.list.result` | Host → 设备 | `workspaces[]`：`{id, name, path}`（path 仅用于显示，主目录显示为 `~`） |
 | `session.list` | 设备 → Host | `workspaceID?` |
-| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
+| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`（在 Mac 终端中打开）；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
 | `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?` |
 | `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"`；`pendingDialogs?`：会话中仍在等待的询问的 id（设备不再显示其他询问） |
 | `session.release` | 设备 → Host | `sessionID` |
@@ -33,7 +33,7 @@
 | `guard.policy.get` | 设备 → Host | 无 |
 | `guard.policy.set` | 设备 → Host | `policy`：`{dangerousCommands, outsideWorkspace, allBash}`（布尔值；缺少的规则保持默认值：`true`、`true`、`false`） |
 | `guard.policy.result` | Host → 设备 | `policy`：当前生效的规则。两个请求都以它回复。 |
-| `session.activity` | Host → 设备 | `sessionID`、`workspaceID`、`activity`：不带 `id`；`hello.ok` 之后立即为每个运行中的会话发送一次，之后活动每次变化都会发送。会话停止时最后发送一次，状态为 `idle`。 |
+| `session.activity` | Host → 设备 | `sessionID`、`workspaceID`、`activity`：不带 `id`；`hello.ok` 之后立即为每个运行中的会话发送一次；会话在 Mac 终端中打开时，以及之后活动每次变化时，也都会发送。会话停止时最后发送一次，状态为 `idle`。 |
 | `dialog.answer` | 设备 → Host | `sessionID`、`response`：一个 Pi `extension_ui_response` 对象。无论本连接是否打开了该会话，都可以回答正在等待的询问。 |
 | `dialog.answered` | Host → 设备 | `sessionID`、`dialogID`：对 `dialog.answer` 的回复。 |
 | `push.register` | 设备 → Host | `token`（APNs 令牌，64–200 位十六进制数字）、`environment`（`sandbox` 或 `production`）、`key`（设备用于接收加密通知的 32 字节 Curve25519 公钥，base64）、`events`（`approval`、`finished`、`failed` 的任意组合）。替换设备之前的登记；设备每次连接都会发送。回复：`ok`。 |
@@ -43,7 +43,7 @@
 | `ok` | Host → 设备 | 请求已完成。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |
 
-`activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。
+`activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。会话在 Mac 终端里的 Pi 中打开时（[wilco-bridge](bridge.zh-CN.md)），`writer` 为 `"tui"`；由 Host 自己的 Pi 运行时不带这个字段。此时 `terminalCommands` 列出终端能执行的命令，设备不提供其他命令。
 
 目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）。Host 发送通知时会提供 `push`。
 

@@ -23,7 +23,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `workspace.list` | device → Host | none |
 | `workspace.list.result` | Host → device | `workspaces[]`: `{id, name, path}` (path is display-only, home shown as `~`) |
 | `session.list` | device → Host | `workspaceID?` |
-| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"`; `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
+| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"` (open in the Mac's terminal); `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
 | `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?` |
 | `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"`; `pendingDialogs?`: the ids of the questions still waiting in the session (a device stops showing any other) |
 | `session.release` | device → Host | `sessionID` |
@@ -33,7 +33,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `guard.policy.get` | device → Host | none |
 | `guard.policy.set` | device → Host | `policy`: `{dangerousCommands, outsideWorkspace, allBash}` (booleans; a missing rule keeps its default: `true`, `true`, `false`) |
 | `guard.policy.result` | Host → device | `policy`: the rules now in force. Reply to both requests. |
-| `session.activity` | Host → device | `sessionID`, `workspaceID`, `activity`: sent, without `id`, for every live session right after `hello.ok` and whenever its activity changes. A session that stopped gets a last one with state `idle`. |
+| `session.activity` | Host → device | `sessionID`, `workspaceID`, `activity`: sent, without `id`, for every live session right after `hello.ok`, when a session opens in the Mac's terminal, and whenever its activity changes. A session that stopped gets a last one with state `idle`. |
 | `dialog.answer` | device → Host | `sessionID`, `response`: a Pi `extension_ui_response` object. Answers a waiting question whether or not the session is open on this connection. |
 | `dialog.answered` | Host → device | `sessionID`, `dialogID`: reply to `dialog.answer`. |
 | `push.register` | device → Host | `token` (APNs, 64–200 hex digits), `environment` (`sandbox` or `production`), `key` (base64 of the device's 32-byte Curve25519 public key that notifications are sealed to), `events` (any of `approval`, `finished`, `failed`). Replaces the device's earlier registration; a device sends it on every connection. Reply: `ok`. |
@@ -43,7 +43,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `ok` | Host → device | The request was done. |
 | `error` | either | `code`, `message`, `requestType?` |
 
-`activity` is `{state, steps, startedAt?, tool?, pendingDialogs}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now.
+`activity` is `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now. `writer` is `"tui"` while the session is open in Pi in the Mac's terminal ([wilco-bridge](bridge.md)); it is absent when the Host's own Pi runs the session. `terminalCommands` then lists the commands the terminal runs; a device does not offer the others.
 
 Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below). A Host offers `push` when it sends notifications.
 
