@@ -7,6 +7,8 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 ## [Unreleased]
 
 ### Added
+- `Protocol/control.md`: `session.fork` (fork a session before one of its messages, or duplicate it, in a separate Pi) and the forked text in `session.opened`'s `draft`; capability `fork`; error `cancelled`. `get_tree` is answered `not_available`: build a session's tree from `get_entries`.
+- `docs/*/session-tools.md`: branches and forks, slash commands, photos, changes, details, rename and compact.
 - `Bridge/` wilco-bridge: a Pi session open in the Mac terminal reaches Wilco on the phone, which can follow it and send prompts, steering, stops and answers; one writer per session, with the terminal waiting for Wilco Host's run to end before it takes over.
 - `Protocol/bridge.md`: the terminal bridge protocol (Unix socket, hello and roles, the records a terminal sends); `Protocol/control.md`: session activity carries `writer` and `terminalCommands`.
 - `docs/*/terminal-sessions.md`: using terminal sessions from the phone.

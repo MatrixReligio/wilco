@@ -69,6 +69,7 @@ iOS App 和 Mac Host 在另一个仓库中开发，以签名后的二进制形�
 - [安全模型](docs/zh-CN/security-model.md)
 - [协议概览](docs/zh-CN/protocol.md)
 - [批准与通知](docs/zh-CN/notifications-and-approvals.md)
+- [在会话中工作](docs/zh-CN/session-tools.md)
 - [在手机上使用终端会话](docs/zh-CN/terminal-sessions.md)
 - [自建中继](docs/zh-CN/self-hosting-relay.md)
 - [常见问题](docs/zh-CN/faq.md)
