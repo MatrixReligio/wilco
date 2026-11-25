@@ -68,6 +68,7 @@ describe("dangerous commands", () => {
     ['echo "$(echo a#)\nrm -rf y)"', "indirect command"],
     ['echo "$(echo $\'\\\')\'; rm -rf y)"', "indirect command"],
     ['echo "$(case x in x) rm -rf y;; esac)"', "indirect command"],
+    ['echo "$(cat <<E\n)\nE\nrm -rf y)"', "indirect command"],
     ['echo "`echo \\`rm -rf y\\``"', "indirect command"],
     ['echo "today `date`"', "indirect command"],
   ])("%s asks despite the wrapping (%s)", (command, label) => {

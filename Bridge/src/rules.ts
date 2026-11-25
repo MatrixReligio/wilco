@@ -158,13 +158,14 @@ const UNCLEAR = "\u0000unclear";
 /**
  * The index of the ")" that ends the command substitution starting at `start` (just after "$("),
  * skipping quoted text; -1 when it does not end, or holds what is not read here: a backtick, a "#"
- * (a comment hides the rest of its line), "$'" quoting or a case statement (whose ")" ends no group).
+ * (a comment hides the rest of its line), "$'" quoting, a case statement (whose ")" ends no group) or a
+ * here-document (whose lines are not commands).
  */
 function closingParen(text: string, start: number): number {
   let depth = 1;
   for (let k = start; k < text.length; k++) {
     const c = text[k];
-    if (c === "#" || c === "`" || (c === "$" && text[k + 1] === "'") || /(^|[^\w])(case|esac)([^\w]|$)/.test(text.slice(k, k + 5))) return -1;
+    if (c === "#" || c === "`" || (c === "$" && text[k + 1] === "'") || (c === "<" && text[k + 1] === "<") || /(^|[^\w])(case|esac)([^\w]|$)/.test(text.slice(k, k + 5))) return -1;
     if (c === "\\") k++;
     else if (c === "'") {
       k = text.indexOf("'", k + 1);
