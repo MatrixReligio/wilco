@@ -25,7 +25,8 @@
 | `session.list` | 设备 → Host | `workspaceID?` |
 | `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`（在 Mac 终端中打开）；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
 | `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?` |
-| `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"`；`pendingDialogs?`：会话中仍在等待的询问的 id（设备不再显示其他询问） |
+| `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"`；`pendingDialogs?`：会话中仍在等待的询问的 id（设备不再显示其他询问）；`draft?`：作为 `session.fork` 的回复时，新会话分叉处那条消息的文本（设备把它放进输入框） |
+| `session.fork` | 设备 → Host | `workspaceID`、`sessionID`、`entryID?`：新建一个会话，内容为 `sessionID` 截至其用户消息 `entryID`（来自 Pi 的 `get_fork_messages`）之前的部分；不带 `entryID` 时复制整个会话。Host 在单独的 Pi 进程中完成，原会话（即使正在运行）不受影响。回复：新会话的 `session.opened`，与 `session.open` 相同。需要 `fork` 能力。 |
 | `session.release` | 设备 → Host | `sessionID` |
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
@@ -45,7 +46,7 @@
 
 `activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。会话在 Mac 终端里的 Pi 中打开时（[wilco-bridge](bridge.zh-CN.md)），`writer` 为 `"tui"`；由 Host 自己的 Pi 运行时不带这个字段。此时 `terminalCommands` 列出终端能执行的命令，设备不提供其他命令。
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）。Host 发送通知时会提供 `push`。
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）、`fork`（`session.fork`）。Host 发送通知时会提供 `push`。
 
 通知（[push.zh-CN.md](push.zh-CN.md)）遵循以下规则。设备只会收到它登记的 `events`，并且不会收到它正在某个在线连接上打开的会话的通知。询问开始等待时发送 `approval`；用时至少 10 秒、或中途等待过回答的运行结束时发送 `finished`；运行以错误结束时发送 `failed`。被中止的运行不发送通知。推送服务报告失效的令牌会被删除，被撤销设备的登记也会被删除。
 
@@ -65,6 +66,7 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `invalid_command` | 会话命令不是带 `type` 的 JSON 对象，或 `dialog.answer` 携带的不是 `extension_ui_response`。 |
 | `unknown_dialog` | 该询问已被（任意设备）回答、已过期，或从未提出。这个回答不会转给 Pi。 |
 | `push_not_registered` | 在 `push.register` 之前发送了 `activity.register`。 |
+| `cancelled` | Mac 上的扩展取消了这个请求（例如分叉）。 |
 | `use_session_open` | 该命令会切换会话（`new_session`、`switch_session`、`fork`、`clone`），请改用 `session.open`。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |

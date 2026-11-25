@@ -25,7 +25,8 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.list` | device → Host | `workspaceID?` |
 | `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"` (open in the Mac's terminal); `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
 | `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?` |
-| `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"`; `pendingDialogs?`: the ids of the questions still waiting in the session (a device stops showing any other) |
+| `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"`; `pendingDialogs?`: the ids of the questions still waiting in the session (a device stops showing any other); `draft?`: in reply to `session.fork`, the text of the message the new session was forked from (a device puts it in its message field) |
+| `session.fork` | device → Host | `workspaceID`, `sessionID`, `entryID?`: a new session holding `sessionID` up to just before its user message `entryID` (from Pi's `get_fork_messages`), or, without `entryID`, a copy of the whole session. The Host does it in a Pi of its own, so the original session, even one running now, is not touched. Reply: `session.opened` for the new session, as for `session.open`. Needs `fork`. |
 | `session.release` | device → Host | `sessionID` |
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
@@ -45,7 +46,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 
 `activity` is `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now. `writer` is `"tui"` while the session is open in Pi in the Mac's terminal ([wilco-bridge](bridge.md)); it is absent when the Host's own Pi runs the session. `terminalCommands` then lists the commands the terminal runs; a device does not offer the others.
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below). A Host offers `push` when it sends notifications.
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below), `fork` (`session.fork`). A Host offers `push` when it sends notifications.
 
 Notifications ([push.md](push.md)) follow these rules. A device hears only about the `events` it registered, and nothing about a session it has open on a live connection. `approval` is sent when a question starts waiting; `finished` when a run that took at least 10 seconds, or waited for an answer, ends; `failed` when a run ends with an error. Aborted runs are not announced. A token the push service reports dead is forgotten, and a revoked device's registration is dropped.
 
@@ -65,6 +66,7 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `invalid_command` | A session command is not a JSON object with a `type`, or a `dialog.answer` does not carry an `extension_ui_response`. |
 | `unknown_dialog` | The question was already answered (by any device), expired, or never asked. The answer is not passed to Pi. |
 | `push_not_registered` | `activity.register` before `push.register`. |
+| `cancelled` | An extension on the Mac stopped the request (for example a fork). |
 | `use_session_open` | The command would change the session (`new_session`, `switch_session`, `fork`, `clone`); use `session.open`. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |
