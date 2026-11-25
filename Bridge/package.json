@@ -1,0 +1,43 @@
+{
+  "name": "@matrixreligio/wilco",
+  "version": "0.1.0",
+  "description": "Pi extensions for Wilco: wilco-guard asks before risky tool calls",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "pi-extension",
+    "wilco"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MatrixReligio/wilco.git",
+    "directory": "Open/Bridge"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "src/guard.ts"
+    ]
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@matrixreligio/wilco-mock-llm": "file:../Tools/mock-llm",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

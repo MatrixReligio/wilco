@@ -1,10 +1,47 @@
 # Wilco Pi extensions
 
-**English** · 简体中文说明见 [docs/zh-CN/architecture.md](../docs/zh-CN/architecture.md)
+**English** · [简体中文](README.zh-CN.md)
 
-- **wilco-bridge** connects a Pi TUI session to Wilco Host over a local Unix socket, so your phone can follow and drive it.
-- **wilco-guard** asks for approval through Pi's extension UI before risky tool calls, such as dangerous shell commands or writes outside the workspace.
+## wilco-guard
 
-Install (once published): `pi install npm:@matrixreligio/wilco`
+wilco-guard asks for your approval, through Pi's extension UI, before risky tool calls. In a session started by Wilco Host the question reaches your iPhone or iPad. If you are away, it arrives as a notification you can approve from the lock screen. Questions have no time limit: Pi waits until you answer.
 
-> Status: wilco-guard is planned for milestone M3 and wilco-bridge for M4.
+What it asks about:
+
+| Rule | Default | Asks before |
+|---|---|---|
+| Dangerous commands | on | `rm -r`, `sudo`, `git push --force` (and `+ref`, `--delete`, `--mirror`), `git reset --hard`, `git clean -f`, `mkfs`, `dd of=`, `chmod -R` / `chown -R`, `find -delete`, `shutdown` / `reboot`, piping into a shell, and redirecting into a device |
+| Writes outside the workspace | on | `write` and `edit` on a path outside the session's working folder |
+| Every command (strict) | off | every `bash` command |
+
+The rules are a safety net, not a sandbox: a determined command can still get past simple pattern matching (for example through a script file). Use strict mode when that matters.
+
+### With Wilco Host
+
+Nothing to install: Wilco Host bundles wilco-guard and loads it into every session it starts. You can change the rules in Wilco Host's settings, or on your phone under the Host's settings. Changes apply to running sessions at once.
+
+### On its own
+
+```sh
+pi install npm:@matrixreligio/wilco
+```
+
+The policy is read on every tool call from the JSON file named by `WILCO_GUARD_POLICY`. Without the variable, or when the file cannot be read or is malformed, the defaults apply:
+
+```json
+{ "dangerousCommands": true, "outsideWorkspace": true, "allBash": false }
+```
+
+Questions use `ctx.ui.confirm`, with a title that starts with `wilco-guard: `. Without a UI to ask (for example `pi -p`), a call that would be asked about is blocked.
+
+## wilco-bridge
+
+wilco-bridge (planned for milestone M4) will connect a Pi TUI session to Wilco Host over a local Unix socket, so your phone can follow and drive it.
+
+## Develop
+
+```sh
+npm install
+npm test          # rules, plus a real Pi run when pi is installed (isolated: temp HOME, never your ~/.pi)
+npm run typecheck
+```
