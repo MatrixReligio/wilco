@@ -6,7 +6,7 @@ Start Pi in Terminal on your Mac as you always do, and pick the same session up 
 
 ## Set it up
 
-1. In Wilco Host's settings, open **Pi** and click **Install** under **Terminal sessions**. (Or run `pi install npm:@matrixreligio/wilco`, which also installs wilco-guard.)
+1. In Wilco Host's settings, open **Pi** and click **Install** under **Terminal sessions**. (Or run `pi install npm:@matrixreligio/wilco`, which also installs wilco-guard. Doing both is fine: each extension still runs once.)
 2. Make sure the folder you work in is shared in Wilco Host.
 3. Start Pi in Terminal in that folder. Sessions you already had open load the extension the next time you start them.
 
@@ -14,13 +14,14 @@ Start Pi in Terminal on your Mac as you always do, and pick the same session up 
 
 The session appears on Home with **In the Mac terminal**, and opens like any other. Everything you send goes to the Pi in your terminal, and the terminal shows it too.
 
-From the phone you can send prompts, steer a run or queue a follow-up, stop a run, change the model and thinking level, rename or compact the session, and answer wilco-guard's questions. Controls the terminal cannot serve from outside, such as clearing queued messages, are shown as unavailable while the session is open in the terminal. A question another extension asks in the terminal can only be answered there.
+From the phone you can send prompts, steer a run or queue a follow-up, stop a run, change the model and thinking level, rename or compact the session, and answer wilco-guard's questions. Controls the terminal cannot serve from outside, such as clearing queued messages, are shown as unavailable while the session is open in the terminal. A question another extension asks in the terminal can only be answered there; the session page shows that one is waiting.
 
 ## Moving between the Mac and the phone
 
 One Pi runs a session at a time.
 
-- **Opening in Terminal a session Wilco Host is running:** if Pi is idle there, the terminal takes the session at once. If it is in the middle of a run, the terminal waits and shows a note; when the run ends it reloads the session, with everything the run did, and you can type again.
+- **Opening in Terminal a session Wilco Host is running:** if Pi is idle there, the terminal takes the session at once. If it is in the middle of a run, the terminal waits and shows a note; when Pi has settled it reloads the session, with everything the run did, and you can type again. If the session was open on your phone, the phone follows the terminal from then on.
+- **Opening the same session in a second terminal:** it follows the first and shows a note, and takes over when the first one closes.
 - **Closing the terminal:** the session stays on your phone. The next time you open it, Wilco Host continues it with its own Pi.
 
 ## Privacy and safety

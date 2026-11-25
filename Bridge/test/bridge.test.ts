@@ -3,7 +3,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import wilcoBridge from "../src/bridge.ts";
+import wilcoBridge, { timing } from "../src/bridge.ts";
 import { runCommand, type BridgeEnv } from "../src/bridge-commands.ts";
 import { toRPC } from "../src/bridge-records.ts";
 
@@ -13,7 +13,8 @@ type Rec = Record<string, any>;
 class FakeHost {
   lines: Rec[] = [];
   sockets: net.Socket[] = [];
-  reply: Rec = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" };
+  /** The answer to a hello; null hangs up without one. */
+  reply: Rec | null = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" };
   private server: net.Server;
   private waiters: (() => void)[] = [];
   readonly socketPath: string;
@@ -30,7 +31,10 @@ class FakeHost {
           const line = JSON.parse(pending.slice(0, nl));
           pending = pending.slice(nl + 1);
           this.lines.push(line);
-          if (line.type === "wilco_bridge_hello") socket.write(JSON.stringify(this.reply) + "\n");
+          if (line.type === "wilco_bridge_hello") {
+            if (this.reply) socket.write(JSON.stringify(this.reply) + "\n");
+            else socket.destroy();
+          }
         }
         this.waiters.splice(0).forEach((w) => w());
       });
@@ -51,10 +55,11 @@ class FakeHost {
 }
 
 /** A Pi double: handlers by event, and what the bridge asked it to do. */
-function fakePi() {
+function fakePi(events?: Rec) {
   const handlers = new Map<string, ((event: Rec, ctx: Rec) => unknown)[]>();
   const did: Rec[] = [];
   let idle = true;
+  let pending = false;
   const ctx: Rec = {
     mode: "tui", hasUI: true, cwd: "/work",
     sessionManager: {
@@ -66,8 +71,8 @@ function fakePi() {
     thinkingLevel: "off",
     modelRegistry: { getAvailable: () => [{ provider: "mock", id: "mock-1" }, { provider: "mock", id: "mock-2" }], find: (p: string, id: string) => ({ provider: p, id }) },
     isIdle: () => idle,
+    hasPendingMessages: () => pending,
     abort: () => did.push({ abort: true }),
-    hasPendingMessages: () => false,
     compact: (options: Rec) => did.push({ compact: options?.customInstructions ?? null }),
     getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent: 10 }),
     ui: { notify: (text: string, level: string) => did.push({ notify: text, level }), confirm: async () => false },
@@ -75,7 +80,7 @@ function fakePi() {
   const commands = new Map<string, Rec>();
   const pi: Rec = {
     on: (name: string, handler: (event: Rec, ctx: Rec) => unknown) => handlers.set(name, [...(handlers.get(name) ?? []), handler]),
-    events: (() => {
+    events: events ?? (() => {
       const listeners = new Map<string, ((data: any) => void)[]>();
       return {
         on: (topic: string, h: (data: any) => void) => listeners.set(topic, [...(listeners.get(topic) ?? []), h]),
@@ -93,6 +98,7 @@ function fakePi() {
   return {
     pi, ctx, did, commands,
     setIdle: (value: boolean) => { idle = value; },
+    setPending: (value: boolean) => { pending = value; },
     async fire(name: string, event: Rec = {}, over: Rec = {}) {
       let result: unknown;
       for (const h of handlers.get(name) ?? []) result = await h({ type: name, ...event }, { ...ctx, ...over });
@@ -117,8 +123,8 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function started(over: Rec = {}) {
-  const pi = fakePi();
+async function started(over: Rec = {}, events?: Rec) {
+  const pi = fakePi(events);
   wilcoBridge(pi.pi as never);
   await pi.fire("session_start", { reason: "startup" }, over);
   open.push(pi);
@@ -181,6 +187,8 @@ function env(over: Partial<BridgeEnv> = {}): { env: BridgeEnv; did: Rec[] } {
   const e: BridgeEnv = {
     isIdle: () => true,
     send: (content, deliverAs) => { did.push({ send: content, deliverAs }); },
+    isCompacting: () => false,
+    hasModel: () => true,
     abort: () => { did.push({ abort: true }); },
     state: () => ({ sessionId: "s-1", isStreaming: false }),
     messages: () => [{ role: "user" }],
@@ -205,14 +213,16 @@ test("commands from the phone run through Pi's extension API", async () => {
   await runCommand({ type: "prompt", id: "3", message: "and that" }, busy.env);
   await runCommand({ type: "steer", id: "4", message: "now" }, busy.env);
   await runCommand({ type: "follow_up", id: "5", message: "later" }, busy.env);
-  expect(idle.did).toEqual([{ send: "go", deliverAs: undefined }]);
+  // Always said how to deliver it: Pi uses it only if it turns out to be busy, so a prompt
+  // never meets a run that started a moment earlier unannounced.
+  expect(idle.did).toEqual([{ send: "go", deliverAs: "followUp" }]);
   expect(busy.did).toEqual([
     { send: "then this", deliverAs: "steer" }, { send: "and that", deliverAs: "followUp" },
     { send: "now", deliverAs: "steer" }, { send: "later", deliverAs: "followUp" },
   ]);
   const images = await runCommand({ type: "prompt", id: "6", message: "look", images: [{ type: "image", data: "AA==", mimeType: "image/png" }] }, idle.env);
   expect(images.success).toBe(true);
-  expect(idle.did.at(-1)).toEqual({ send: [{ type: "text", text: "look" }, { type: "image", data: "AA==", mimeType: "image/png" }], deliverAs: undefined });
+  expect(idle.did.at(-1)).toEqual({ send: [{ type: "text", text: "look" }, { type: "image", data: "AA==", mimeType: "image/png" }], deliverAs: "followUp" });
   expect(await runCommand({ type: "get_state", id: "7" }, idle.env)).toEqual({ type: "response", id: "7", command: "get_state", success: true, data: { sessionId: "s-1", isStreaming: false } });
   expect((await runCommand({ type: "get_messages", id: "8" }, idle.env)).data).toEqual({ messages: [{ role: "user" }] });
   expect((await runCommand({ type: "get_available_models", id: "9" }, idle.env)).data).toEqual({ models: [{ id: "m" }] });
@@ -242,7 +252,7 @@ test("the Host's commands are answered over the socket", async () => {
   host.send({ type: "prompt", id: "b", message: "from the phone" });
   await host.until(() => host.of("response").length === 2);
   expect(host.of("response")[0]).toMatchObject({ id: "a", command: "get_state", success: true, data: { sessionId: "s-1", sessionFile: "/work/.pi/s-1.jsonl", isStreaming: false, thinkingLevel: "off" } });
-  expect(pi.did).toContainEqual({ send: "from the phone" });
+  expect(pi.did).toContainEqual({ send: "from the phone", deliverAs: "followUp" });
 });
 
 test("a follower takes no typed input until it is handed the session", async () => {
@@ -313,4 +323,183 @@ test("a refused session stays quiet", async () => {
   await new Promise((r) => setTimeout(r, 1500));
   expect(host.of("agent_start")).toHaveLength(0);
   expect(host.of("wilco_bridge_hello")).toHaveLength(1);
+});
+
+test("a message Pi cannot take now is refused, not lost", async () => {
+  for (const type of ["prompt", "steer", "follow_up"]) {
+    const compacting = env({ isIdle: () => false, isCompacting: () => true });
+    const refused = await runCommand({ type, id: "1", message: "go" }, compacting.env);
+    expect(refused).toMatchObject({ type: "response", id: "1", command: type, success: false });
+    expect(refused.error).toContain("compact");
+    expect(compacting.did).toEqual([]);
+    const noModel = env({ hasModel: () => false });
+    expect(await runCommand({ type, id: "2", message: "go" }, noModel.env)).toMatchObject({ success: false, error: "No model is selected in the terminal." });
+    expect(noModel.did).toEqual([]);
+  }
+});
+
+test("only a message that waits is shown as queued, and the queue is settled with Pi's", async () => {
+  const pi = await welcomed();
+  host.send({ type: "prompt", id: "p1", message: "now" });
+  await host.until(() => host.of("response").length === 1);
+  expect(host.of("queue_update")).toEqual([]);
+  expect(pi.did).toContainEqual({ send: "now", deliverAs: "followUp" });
+  pi.setIdle(false);
+  host.send({ type: "steer", id: "p2", message: "careful" });
+  await host.until(() => host.of("queue_update").length === 1);
+  expect(host.of("queue_update")[0]).toEqual({ type: "queue_update", steering: ["careful"], followUp: [] });
+  // Pi let go of it without running it (cleared in the terminal): the phone stops showing it.
+  pi.setIdle(true);
+  await pi.fire("agent_settled", {});
+  await host.until(() => host.of("queue_update").length === 2);
+  expect(host.of("queue_update")[1]).toEqual({ type: "queue_update", steering: [], followUp: [] });
+});
+
+test("a terminal waiting for another terminal says so, keeps trying, and reloads when it gets the session", async () => {
+  const saved = { ...timing };
+  Object.assign(timing, { first: 100, max: 200 });
+  try {
+    host.reply = { type: "wilco_bridge_refused", reason: "another_writer" };
+    const pi = await started();
+    await host.until(() => host.of("wilco_bridge_hello").length === 1);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(pi.did.some((d) => typeof d.notify === "string" && d.notify.includes("another terminal"))).toBe(true);
+    expect(await pi.fire("input", { text: "typed", source: "interactive" })).toEqual({ action: "handled" });
+    await host.until(() => host.of("wilco_bridge_hello").length >= 2, 2000);
+    host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" };
+    await host.until(() => pi.did.some((d) => d.send === "/wilco-reload"), 2000);
+    expect(await pi.fire("input", { text: "typed", source: "interactive" })).toBeUndefined();
+  } finally {
+    Object.assign(timing, saved);
+  }
+});
+
+test("a follower of another terminal is told whose session it is", async () => {
+  host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "follower", holder: "terminal" };
+  const pi = await welcomed();
+  expect(pi.did.some((d) => typeof d.notify === "string" && d.notify.includes("another terminal"))).toBe(true);
+  expect(await pi.fire("input", { text: "typed", source: "interactive" })).toEqual({ action: "handled" });
+});
+
+test("a follower that loses the Host reads the session again and takes typing", async () => {
+  host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "follower" };
+  const pi = await welcomed();
+  host.sockets.forEach((s) => s.destroy());
+  await host.until(() => pi.did.some((d) => d.send === "/wilco-reload"));
+  expect(await pi.fire("input", { text: "typed", source: "interactive" })).toBeUndefined();
+});
+
+test("a follower that comes back as the writer reads the session again first", async () => {
+  const saved = { ...timing };
+  Object.assign(timing, { first: 100, max: 200 });
+  try {
+    host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "follower" };
+    const pi = await welcomed();
+    // The Host restarts (its Pi, and the run, are gone) and welcomes the terminal as the writer.
+    host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" };
+    host.sockets.forEach((s) => s.destroy());
+    await host.until(() => host.of("wilco_bridge_hello").length === 2, 2000);
+    expect(pi.did.filter((d) => d.send === "/wilco-reload")).toHaveLength(1);
+  } finally {
+    Object.assign(timing, saved);
+  }
+});
+
+test("a Host that hangs up before answering is tried less and less often", async () => {
+  const saved = { ...timing };
+  Object.assign(timing, { first: 100, max: 400 });
+  try {
+    host.reply = null;
+    await started();
+    await new Promise((r) => setTimeout(r, 1300));
+    // 0, 100, 300, 700, 1100 ms: never every 100 ms.
+    expect(host.of("wilco_bridge_hello").length).toBeLessThanOrEqual(6);
+    expect(host.of("wilco_bridge_hello").length).toBeGreaterThanOrEqual(3);
+  } finally {
+    Object.assign(timing, saved);
+  }
+});
+
+test("a folder that is not shared is tried again quietly, so sharing it later works", async () => {
+  const saved = { ...timing };
+  Object.assign(timing, { notShared: 200 });
+  try {
+    host.reply = { type: "wilco_bridge_refused", reason: "not_shared" };
+    const pi = await started();
+    await host.until(() => host.of("wilco_bridge_hello").length === 2, 2000);
+    expect(pi.did.filter((d) => d.notify)).toEqual([]);
+    host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" };
+    await host.until(() => host.of("wilco_bridge_hello").length === 3, 2000);
+    await new Promise((r) => setTimeout(r, 50));
+    await pi.fire("agent_start");
+    await host.until(() => host.of("agent_start").length === 1);
+  } finally {
+    Object.assign(timing, saved);
+  }
+});
+
+test("a Host of another version is named once and not tried again", async () => {
+  host.reply = { type: "wilco_bridge_refused", reason: "unsupported_version" };
+  const pi = await started();
+  await host.until(() => host.of("wilco_bridge_hello").length === 1);
+  await new Promise((r) => setTimeout(r, 1500));
+  expect(host.of("wilco_bridge_hello")).toHaveLength(1);
+  expect(pi.did.filter((d) => typeof d.notify === "string" && d.notify.includes("version"))).toHaveLength(1);
+});
+
+test("loaded twice (from Wilco Host and from the npm package), the bridge runs once", async () => {
+  const first = fakePi();
+  wilcoBridge(first.pi as never);
+  const second = fakePi(first.pi.events);
+  wilcoBridge(second.pi as never);
+  await first.fire("session_start", { reason: "startup" });
+  await second.fire("session_start", { reason: "startup" });
+  open.push(first, second);
+  await host.until(() => host.of("wilco_bridge_hello").length === 1);
+  await new Promise((r) => setTimeout(r, 200));
+  expect(host.of("wilco_bridge_hello")).toHaveLength(1);
+  expect(second.commands.size).toBe(0);
+});
+
+test("a question still waiting is asked again when the terminal reconnects", async () => {
+  const saved = { ...timing };
+  Object.assign(timing, { first: 100, max: 200 });
+  try {
+    const pi = await welcomed();
+    const answers: boolean[] = [];
+    pi.pi.events.emit("wilco:ask", { title: "wilco-guard: run: rm -rf x", message: "m", signal: new AbortController().signal, answer: (v: boolean) => answers.push(v) });
+    await host.until(() => host.of("extension_ui_request").length === 1);
+    host.sockets.forEach((s) => s.destroy());
+    await host.until(() => host.of("extension_ui_request").length === 2, 2000);
+    const again = host.of("extension_ui_request")[1];
+    expect(again).toEqual(host.of("extension_ui_request")[0]);
+    host.send({ type: "extension_ui_response", id: again.id, confirmed: false });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(answers).toEqual([false]);
+  } finally {
+    Object.assign(timing, saved);
+  }
+});
+
+test("wilco-guard's own question is not also shown as a terminal question", async () => {
+  const pi = await welcomed();
+  await pi.fire("ui_prompt_start", { reason: "ui_prompt", kind: "confirm", title: "wilco-guard: run: rm -rf x" });
+  await pi.fire("ui_prompt_end", {});
+  await pi.fire("agent_start");
+  await host.until(() => host.of("agent_start").length === 1);
+  expect(host.of("wilco_terminal_prompt")).toEqual([]);
+  expect(host.of("wilco_terminal_prompt_end")).toEqual([]);
+});
+
+test("the terminal's notes speak the user's language", async () => {
+  const saved = process.env.LANG;
+  process.env.LANG = "zh_CN.UTF-8";
+  try {
+    host.reply = { type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "follower" };
+    const pi = await welcomed();
+    expect(pi.did.some((d) => typeof d.notify === "string" && d.notify.includes("Wilco") && /[\u4e00-\u9fff]/.test(d.notify))).toBe(true);
+  } finally {
+    if (saved === undefined) delete process.env.LANG;
+    else process.env.LANG = saved;
+  }
 });

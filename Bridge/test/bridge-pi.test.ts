@@ -1,7 +1,7 @@
 // wilco-bridge in a real Pi TUI (isolated: temporary HOME and agent folder, scripted model),
 // run on a pseudo-terminal and connected to a stand-in for Wilco Host's socket.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { access, mkdir } from "node:fs/promises";
+import { access, cp, mkdir } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -74,6 +74,10 @@ class FakeHost {
     }
   }
 
+  of(type: string): Rec[] {
+    return this.received.filter((r) => r.type === type);
+  }
+
   /** Sends a command and waits for its response. */
   async command(record: Rec): Promise<{ record: Rec; index: number }> {
     const from = this.received.length;
@@ -90,13 +94,21 @@ class FakeHost {
 type Terminal = { host: FakeHost; cwd: string; type(text: string): void; screen(): string };
 
 /** A real Pi TUI with wilco-bridge (and wilco-guard) in an isolated home, said hello and welcomed. */
-async function withTerminal(turns: object[], run: (terminal: Terminal) => Promise<void>) {
+async function withTerminal(turns: object[], run: (terminal: Terminal) => Promise<void>,
+  options: { twice?: boolean; role?: "writer" | "follower" } = {}) {
   const llm = await startMockLLM({ port: 0, script: { turns } as never });
   const iso = await isolate(llm.url);
   const host = new FakeHost();
   const socket = path.join(iso.root, "b.sock");
   await host.listen(socket);
-  const args = iso.args({ extensions: [bridge, guard], useSessionDir: true } as never)
+  const extensions = [bridge, guard];
+  if (options.twice) {
+    // A second copy, as when the npm package is installed besides Wilco Host's own.
+    const copy = path.join(iso.root, "npm-copy");
+    await cp(path.join(here, "..", "src"), copy, { recursive: true });
+    extensions.push(path.join(copy, "bridge.ts"), path.join(copy, "guard.ts"));
+  }
+  const args = iso.args({ extensions, useSessionDir: true } as never)
     .filter((arg, i, all) => arg !== "--mode" && all[i - 1] !== "--mode");
   const child: ChildProcess = spawn("python3", ["-I", ptyRun, await resolvePiExecutable(piPath!), ...args], {
     cwd: iso.cwd,
@@ -110,7 +122,7 @@ async function withTerminal(turns: object[], run: (terminal: Terminal) => Promis
   try {
     const { record: hello } = await host.waitFor((r) => r.type === "wilco_bridge_hello", "hello");
     expect(hello.cwd).toBe(iso.cwd);
-    host.send({ type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: "writer" });
+    host.send({ type: "wilco_bridge_welcome", bridgeProtocolVersion: 1, role: options.role ?? "writer" });
     await sleep(1500); // the TUI finishes drawing before it takes typing
     await run(terminal);
   } catch (error) {
@@ -181,5 +193,32 @@ describe.skipIf(!piPath)("wilco-bridge in a real Pi TUI", () => {
       await host.waitFor((r) => r.type === "agent_end", "agent_end", from);
       expect(await exists(path.join(cwd, "build"))).toBe(false);
     });
+  });
+
+  test("loaded twice, the bridge and wilco-guard each run once, and a waiting terminal reloads", { timeout: 90_000 }, async () => {
+    await withTerminal([bashTurn("rm -rf build", "call_1"), done], async ({ host, cwd }) => {
+      await sleep(1000);
+      expect(host.of("wilco_bridge_hello")).toHaveLength(1);
+      // Handed the session: /wilco-reload runs (it is not sent to the model as a prompt), and the
+      // reloaded session says hello again.
+      host.send({ type: "wilco_bridge_role", role: "writer" });
+      const before = host.received.length;
+      await host.waitFor((r) => r.type === "wilco_bridge_hello", "hello after the reload", before);
+      await sleep(500);
+      expect(host.of("wilco_bridge_hello")).toHaveLength(2);
+    }, { twice: true, role: "follower" });
+  });
+
+  test("loaded twice, wilco-guard asks once", { timeout: 90_000 }, async () => {
+    await withTerminal([bashTurn("rm -rf build", "call_1"), done], async ({ host, cwd }) => {
+      await mkdir(path.join(cwd, "build"));
+      const from = host.received.length;
+      await host.command({ type: "prompt", id: "h1", message: "clean up" });
+      const { record } = await host.waitFor((r) => r.type === "extension_ui_request" && r.method === "confirm", "the question", from);
+      host.send({ type: "extension_ui_response", id: record.id, confirmed: true });
+      await host.waitFor((r) => r.type === "agent_end", "agent_end", from);
+      expect(host.received.slice(from).filter((r) => r.type === "extension_ui_request")).toHaveLength(1);
+      expect(await exists(path.join(cwd, "build"))).toBe(false);
+    }, { twice: true });
   });
 });

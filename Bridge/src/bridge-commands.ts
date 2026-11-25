@@ -8,7 +8,11 @@ export type Content = string | Rec[];
 /** What the bridge needs from the terminal's Pi. */
 export interface BridgeEnv {
   isIdle(): boolean;
-  send(content: Content, deliverAs: DeliverAs | undefined): void;
+  /** Pi refuses messages while it compacts the session. */
+  isCompacting(): boolean;
+  hasModel(): boolean;
+  /** `deliverAs` applies when Pi turns out to be busy; otherwise the message starts a run. */
+  send(content: Content, deliverAs: DeliverAs): void;
   abort(): void;
   state(): Rec;
   messages(): unknown[];
@@ -38,6 +42,13 @@ function content(command: Rec): Content {
   return images.length === 0 ? text : [{ type: "text", text }, ...images];
 }
 
+/** Why Pi would drop a message sent now (it reports that only in the terminal). */
+function undeliverable(env: BridgeEnv): string | undefined {
+  if (env.isCompacting()) return "Pi is compacting the session in the terminal. Send it again when that is done.";
+  if (!env.hasModel()) return "No model is selected in the terminal.";
+  return undefined;
+}
+
 export async function runCommand(command: Rec, env: BridgeEnv): Promise<Rec> {
   const type = String(command.type ?? "");
   const ok = (data?: unknown): Rec =>
@@ -45,18 +56,17 @@ export async function runCommand(command: Rec, env: BridgeEnv): Promise<Rec> {
   const fail = (error: string): Rec => ({ type: "response", id: command.id, command: type, success: false, error });
   try {
     switch (type) {
-      case "prompt": {
-        // Pi refuses a message while it works unless told how to deliver it.
-        const behavior = command.streamingBehavior === "steer" ? "steer" : "followUp";
-        env.send(content(command), env.isIdle() ? undefined : behavior);
+      case "prompt":
+      case "steer":
+      case "follow_up": {
+        // Pi refuses a message while it works unless told how to deliver it, so it is always
+        // told: a run the terminal started a moment ago must not turn the phone's message away.
+        const refusal = undeliverable(env);
+        if (refusal) return fail(refusal);
+        const behavior = type === "steer" || (type === "prompt" && command.streamingBehavior === "steer") ? "steer" : "followUp";
+        env.send(content(command), behavior);
         return ok();
       }
-      case "steer":
-        env.send(content(command), env.isIdle() ? undefined : "steer");
-        return ok();
-      case "follow_up":
-        env.send(content(command), env.isIdle() ? undefined : "followUp");
-        return ok();
       case "abort":
         env.abort();
         return ok();

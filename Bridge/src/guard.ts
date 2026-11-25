@@ -3,6 +3,7 @@
 // policy file; the policy is read again for every tool call, so changes apply at once.
 import os from "node:os";
 import path from "node:path";
+import { firstCopy } from "./first-copy.ts";
 import { assess, loadPolicy } from "./rules.ts";
 
 // Only the parts of Pi's ExtensionAPI this extension uses, so it has no dependencies.
@@ -17,7 +18,7 @@ export type WilcoAsk = { title: string; message: string; signal: AbortSignal; an
 type Block = { block: true; reason: string };
 type GuardAPI = {
   on(event: "tool_call", handler: (event: ToolCallEvent, ctx: GuardContext) => Promise<Block | undefined>): void;
-  events?: { emit(topic: string, data: unknown): void };
+  events?: { on(topic: string, handler: (data: any) => void): unknown; emit(topic: string, data: unknown): void };
 };
 
 /** Asks in Pi's UI and, through wilco-bridge when it listens, on the phone: the first answer counts. */
@@ -39,6 +40,8 @@ async function ask(pi: GuardAPI, ctx: GuardContext, title: string, message: stri
 }
 
 export default function wilcoGuard(pi: GuardAPI): void {
+  // Loaded both by Wilco Host and from the npm package: one copy asks, so nothing is asked twice.
+  if (!firstCopy("guard", pi.events)) return;
   // Read once and removed, so the commands Pi runs do not inherit where the policy lives. The
   // policy's folder (with wilco-guard's code) is protected: touching it is always asked about.
   // WILCO_GUARD_PROTECT names more folders to protect, one per line (the Host's state folder).

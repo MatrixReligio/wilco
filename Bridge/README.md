@@ -47,15 +47,17 @@ wilco-bridge brings a Pi session you started in Terminal to Wilco on your iPhone
 - **From Wilco Host:** open the Pi page in Wilco Host's settings and click **Install** under Terminal sessions. Wilco Host runs `pi install` with the copy of wilco-bridge it bundles; **Remove** undoes it.
 - **On its own:** `pi install npm:@matrixreligio/wilco` installs wilco-bridge together with wilco-guard.
 
+Installed both ways, each extension still runs once, and Wilco Host's settings show it as installed.
+
 Pi sessions started after installing load it. The session's folder must be one you share in Wilco Host; for other folders the extension does nothing.
 
 ### What works from the phone
 
-Sending prompts, steering and follow-ups, stopping a run, changing the model and thinking level, naming and compacting the session, and answering wilco-guard's questions (when wilco-guard is installed in Pi too). The app does not offer what the terminal cannot do from outside, such as clearing queued messages or running `!` shell commands. A question another extension asks in the terminal can be answered only there.
+Sending prompts, steering and follow-ups, stopping a run, changing the model and thinking level, naming and compacting the session, and answering wilco-guard's questions (when wilco-guard is installed in Pi too). The app does not offer what the terminal cannot do from outside, such as clearing queued messages or running `!` shell commands. A question another extension asks in the terminal can be answered only there; the phone shows that one is waiting.
 
 ### One session, one writer
 
-A session is run by one Pi at a time: Wilco Host's own, or the terminal's. If you open a session in Terminal that Wilco Host's Pi holds, the Host hands it over: at once when its Pi is idle, otherwise when the current run ends. Until then the terminal follows and does not take typing (Pi says so). When you close the terminal, the next time you open the session on your phone Wilco Host continues it with its own Pi.
+A session is run by one Pi at a time: Wilco Host's own, or the terminal's. If you open a session in Terminal that Wilco Host's Pi holds, the Host hands it over: at once when its Pi is idle, otherwise when Pi has settled (the run, compaction and queued messages are done). Until then the terminal follows and does not take typing (Pi says so); a phone that had the session open follows the terminal from then on. A second terminal opening the same session follows the first, and takes over when the first one closes. Pi's built-in slash commands and `!` commands still run in a terminal that follows: Pi gives extensions no way to hold them back. When you close the terminal, the next time you open the session on your phone Wilco Host continues it with its own Pi.
 
 wilco-bridge talks to Wilco Host over a socket only your Mac user can open: `~/Library/Application Support/Wilco/Host/bridge.sock` (`WILCO_BRIDGE_SOCKET` names another). If Wilco Host is not running, it keeps trying in the background and the terminal works as usual. The protocol is in [Protocol/bridge.md](../Protocol/bridge.md).
 

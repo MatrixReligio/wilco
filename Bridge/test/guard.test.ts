@@ -90,3 +90,12 @@ test("with no bridge listening, only the terminal is asked", async () => {
   const ctx = { cwd: "/work", hasUI: true, ui: { confirm: async () => true } };
   expect(await handler(risky, ctx)).toBeUndefined();
 });
+
+test("loaded twice (Wilco Host's copy and the npm package), wilco-guard asks once", () => {
+  process.env.WILCO_GUARD_POLICY = "/state/extensions/wilco-guard/policy.json";
+  const events = bus();
+  const handlers: unknown[] = [];
+  wilcoGuard({ on: (_event, handler) => handlers.push(handler), events });
+  wilcoGuard({ on: (_event, handler) => handlers.push(handler), events });
+  expect(handlers).toHaveLength(1);
+});

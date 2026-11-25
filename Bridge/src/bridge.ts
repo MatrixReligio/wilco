@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { bridgeCommands, runCommand, type BridgeEnv, type Content, type DeliverAs } from "./bridge-commands.ts";
 import { forwardedEvents, toRPC } from "./bridge-records.ts";
+import { firstCopy } from "./first-copy.ts";
 
 type Rec = Record<string, any>;
 type Handler = (event: Rec, ctx: Rec) => unknown;
@@ -26,27 +27,49 @@ const protocolVersion = 1;
 const reloadCommand = "wilco-reload";
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
+/** How long to wait before trying Wilco Host again (ms); tests shorten them. */
+export const timing = { first: 1000, max: 5000, notShared: 30_000 };
+
+/** The terminal's notes, in Chinese when the user's language is, otherwise in English. */
+function say(english: string, chinese: string): string {
+  const language = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || Intl.DateTimeFormat().resolvedOptions().locale || "";
+  return /^zh/i.test(language) ? chinese : english;
+}
+
+type Role = "writer" | "follower";
+/** Who has the session while this terminal waits: Wilco Host's Pi or another terminal. */
+type Holder = "host" | "terminal";
+
 export function socketPath(): string {
   return process.env.WILCO_BRIDGE_SOCKET ?? path.join(os.homedir(), "Library", "Application Support", "Wilco", "Host", "bridge.sock");
 }
 
 /** One terminal session's connection to Wilco Host; tried again while the Host is away. */
 class Link {
-  role: "writer" | "follower" | undefined;
+  role: Role | undefined;
   private socket: net.Socket | undefined;
   private closed = false;
+  /** The Host speaks another version: not tried again. */
   private refused = false;
-  private delay = 1000;
+  private delay = timing.first;
+  /** Set when the Host said when to try again. */
+  private retryIn: number | undefined;
   private timer: NodeJS.Timeout | undefined;
 
   private readonly hello: () => Rec;
   private readonly onRecord: (record: Rec) => void;
-  private readonly onRole: (role: "writer" | "follower", previous: string | undefined) => void;
+  private readonly onRole: (role: Role, holder: Holder) => void;
+  private readonly onRefused: (reason: string) => void;
+  private readonly onLost: () => void;
 
-  constructor(hello: () => Rec, onRecord: (record: Rec) => void, onRole: (role: "writer" | "follower", previous: string | undefined) => void) {
+  constructor(hello: () => Rec, handlers: {
+    record: (record: Rec) => void; role: (role: Role, holder: Holder) => void; refused: (reason: string) => void; lost: () => void;
+  }) {
     this.hello = hello;
-    this.onRecord = onRecord;
-    this.onRole = onRole;
+    this.onRecord = handlers.record;
+    this.onRole = handlers.role;
+    this.onRefused = handlers.refused;
+    this.onLost = handlers.lost;
     this.connect();
   }
 
@@ -69,7 +92,6 @@ class Link {
     let pending = "";
     socket.setEncoding("utf8");
     socket.on("connect", () => {
-      this.delay = 1000;
       socket.write(JSON.stringify(this.hello()) + "\n");
     });
     socket.on("data", (chunk: string) => {
@@ -87,12 +109,17 @@ class Link {
     socket.on("error", () => {});
     socket.on("close", () => {
       if (this.socket !== socket) return;
+      const had = this.role;
       this.role = undefined;
+      if (had) this.onLost();
       if (this.closed || this.refused) return;
-      // Wilco Host is not running (or restarted): try again, at most every 5 s.
-      this.timer = setTimeout(() => this.connect(), this.delay);
+      // Wilco Host is not running (or restarted): try again, less and less often (at most
+      // every timing.max), unless it said when.
+      const wait = this.retryIn ?? this.delay;
+      if (this.retryIn === undefined) this.delay = Math.min(this.delay * 2, timing.max);
+      this.retryIn = undefined;
+      this.timer = setTimeout(() => this.connect(), wait);
       this.timer.unref?.();
-      this.delay = Math.min(this.delay * 2, 5000);
     });
   }
 
@@ -100,16 +127,22 @@ class Link {
     switch (record.type) {
       case "wilco_bridge_welcome":
       case "wilco_bridge_role": {
-        const previous = this.role;
+        // Answered: the next loss of the Host starts again from the shortest wait.
+        this.delay = timing.first;
         this.role = record.role === "follower" ? "follower" : "writer";
-        this.onRole(this.role, previous);
+        this.onRole(this.role, record.holder === "terminal" ? "terminal" : "host");
         return;
       }
-      case "wilco_bridge_refused":
-        this.refused = true;
+      case "wilco_bridge_refused": {
+        const reason = String(record.reason ?? "");
         this.role = undefined;
+        if (reason === "unsupported_version") this.refused = true;
+        // Not shared yet: asked again now and then, so sharing the folder later works.
+        else if (reason === "not_shared") this.retryIn = timing.notShared;
+        this.onRefused(reason);
         this.socket?.destroy();
         return;
+      }
       default:
         if (this.role === "writer") this.onRecord(record);
     }
@@ -117,11 +150,39 @@ class Link {
 }
 
 export default function wilcoBridge(pi: BridgeAPI): void {
+  // Installed both from Wilco Host and from the npm package: one copy talks to the Host.
+  if (!firstCopy("bridge", pi.events)) return;
   let ctx: Rec | undefined;
   let link: Link | undefined;
   let compacting = false;
+  /** Set while someone else has the session: typing waits, and the session is read again after. */
+  let waitingFor: Holder | undefined;
+  let reloadWhenWriter = false;
+  /** The last note shown, so a note is not repeated on every retry. */
+  let shown: string | undefined;
   // Messages from the phone waiting for Pi to take them (RPC's queue_update).
-  const queue: { steering: string[]; followUp: string[] } = { steering: [], followUp: [] };
+  let queue: { steering: string[]; followUp: string[] } = { steering: [], followUp: [] };
+
+  const sendQueue = () => link?.send({ type: "queue_update", steering: [...queue.steering], followUp: [...queue.followUp] });
+  const note = (message: string, level: "info" | "warning") => {
+    if (shown === message) return;
+    shown = message;
+    ctx?.ui?.notify?.(message, level);
+  };
+  const waitingNote = (holder: Holder) => holder === "terminal"
+    ? say("This session is open in Pi in another terminal. You can type here once it is closed there.",
+          "这个会话已在另一个终端的 Pi 中打开。在那边关闭后，即可在这里输入。")
+    : say("Wilco is running this session from your iPhone or iPad. You can type here again when it finishes.",
+          "Wilco 正在通过你的 iPhone 或 iPad 运行这个会话。运行结束后，即可在这里继续输入。");
+  const reload = () => {
+    reloadWhenWriter = false;
+    pi.sendUserMessage(`/${reloadCommand}`, { expandPromptTemplates: true });
+  };
+  const wait = (holder: Holder) => {
+    waitingFor = holder;
+    reloadWhenWriter = true;
+    note(waitingNote(holder), "info");
+  };
 
   const text = (value: Content): string =>
     typeof value === "string" ? value : value.filter((part) => part.type === "text").map((part) => String(part.text ?? "")).join("");
@@ -138,14 +199,15 @@ export default function wilcoBridge(pi: BridgeAPI): void {
 
   const env: BridgeEnv = {
     isIdle: () => ctx?.isIdle?.() ?? true,
+    isCompacting: () => compacting,
+    hasModel: () => ctx?.model !== undefined && ctx?.model !== null,
     send(content, deliverAs) {
-      if (deliverAs) {
+      // Shown as waiting only when Pi is busy; Pi ignores deliverAs when it is not.
+      if (!(ctx?.isIdle?.() ?? true)) {
         (deliverAs === "steer" ? queue.steering : queue.followUp).push(text(content));
-        link?.send({ type: "queue_update", steering: [...queue.steering], followUp: [...queue.followUp] });
-        pi.sendUserMessage(content, { deliverAs });
-      } else {
-        pi.sendUserMessage(content);
+        sendQueue();
       }
+      pi.sendUserMessage(content, { deliverAs });
     },
     abort: () => ctx?.abort?.(),
     state() {
@@ -230,12 +292,32 @@ export default function wilcoBridge(pi: BridgeAPI): void {
       sessionId: ctx?.sessionManager?.getSessionId?.(), sessionFile: ctx?.sessionManager?.getSessionFile?.(), cwd: ctx?.cwd,
       commands: [...bridgeCommands],
     });
-    link = new Link(hello, (record) => void answer(record), (role, previous) => {
-      if (role === "follower") {
-        ctx?.ui?.notify?.("This session is being driven from Wilco on your iPhone. You can type again when it finishes.", "info");
-      } else if (previous === "follower") {
-        pi.sendUserMessage(`/${reloadCommand}`, { expandPromptTemplates: true });
-      }
+    link = new Link(hello, {
+      record: (record) => void answer(record),
+      role: (role, holder) => {
+        if (role === "follower") return wait(holder);
+        waitingFor = undefined;
+        shown = undefined;
+        // Someone else wrote the session meanwhile: read it again before taking typing.
+        if (reloadWhenWriter) return reload();
+        // Questions still waiting are asked on the phone again (a reconnect lost them there).
+        for (const question of asked.values()) link?.send(question.request);
+      },
+      refused: (reason) => {
+        if (reason === "another_writer") return wait("terminal");
+        if (reason === "unsupported_version") {
+          note(say("Wilco Host and this wilco-bridge do not speak the same version. Update them to reach this session from Wilco.",
+                   "Wilco Host 与这个 wilco-bridge 的版本不一致。请更新两者，以便从 Wilco 访问这个会话。"), "warning");
+        }
+      },
+      lost: () => {
+        // The Host is gone, and with it the run this terminal waited for: read the session
+        // again (it may have grown) and take typing.
+        if (waitingFor === undefined) return;
+        waitingFor = undefined;
+        shown = undefined;
+        reload();
+      },
     });
   });
 
@@ -245,13 +327,14 @@ export default function wilcoBridge(pi: BridgeAPI): void {
   });
 
   // wilco-guard's questions, asked on the phone too while this terminal writes the session.
-  const asked = new Map<string, (confirmed: boolean) => void>();
+  const asked = new Map<string, { answer: (confirmed: boolean) => void; request: Rec }>();
   let nextQuestion = 1;
   pi.events.on("wilco:ask", (question: { title: string; message: string; signal: AbortSignal; answer(confirmed: boolean): void }) => {
     if (link?.role !== "writer" || question.signal.aborted) return;
     const id = `wilco-bridge-${process.pid}-${nextQuestion++}`;
-    asked.set(id, question.answer);
-    link.send({ type: "extension_ui_request", id, method: "confirm", title: question.title, message: question.message });
+    const request = { type: "extension_ui_request", id, method: "confirm", title: question.title, message: question.message };
+    asked.set(id, { answer: question.answer, request });
+    link.send(request);
     question.signal.addEventListener("abort", () => {
       if (asked.delete(id)) link?.send({ type: "wilco_dialog_closed", id });
     });
@@ -260,9 +343,9 @@ export default function wilcoBridge(pi: BridgeAPI): void {
   async function answer(record: Rec): Promise<void> {
     if (typeof record.type !== "string") return;
     if (record.type === "extension_ui_response") {
-      const reply = asked.get(String(record.id));
+      const question = asked.get(String(record.id));
       asked.delete(String(record.id));
-      reply?.(record.confirmed === true);
+      question?.answer(record.confirmed === true);
       return;
     }
     link?.send(await runCommand(record, env));
@@ -278,27 +361,41 @@ export default function wilcoBridge(pi: BridgeAPI): void {
           const index = list.indexOf(said);
           if (index >= 0) {
             list.splice(index, 1);
-            link?.send({ type: "queue_update", steering: [...queue.steering], followUp: [...queue.followUp] });
+            sendQueue();
             break;
           }
         }
       }
       const record = toRPC(name, event);
       if (record) link?.send(record);
+      // Pi let go of messages it did not run (cleared in the terminal): stop showing them.
+      if (name === "agent_settled" && !(ctx?.hasPendingMessages?.() ?? false) && queue.steering.length + queue.followUp.length > 0) {
+        queue.steering = [];
+        queue.followUp = [];
+        sendQueue();
+      }
       return undefined;
     });
   }
 
   watch("input", (event, eventCtx) => {
-    if (link?.role !== "follower" || event.source === "extension") return undefined;
-    eventCtx.ui?.notify?.("Wilco is driving this session from your iPhone. Wait until it finishes.", "warning");
+    if (waitingFor === undefined || event.source === "extension") return undefined;
+    eventCtx.ui?.notify?.(waitingNote(waitingFor), "warning");
     return { action: "handled" };
   });
 
+  // A question another extension asks in the terminal (wilco-guard's reach the phone as
+  // extension_ui_request instead, so they are not announced twice).
+  let terminalPrompt = false;
   watch("ui_prompt_start", (event) => {
-    link?.send({ type: "wilco_terminal_prompt", kind: event.kind, title: event.title ?? "" });
+    const title = String(event.title ?? "");
+    if (title.startsWith("wilco-guard: ")) return;
+    terminalPrompt = true;
+    link?.send({ type: "wilco_terminal_prompt", kind: event.kind, title });
   });
   watch("ui_prompt_end", () => {
+    if (!terminalPrompt) return;
+    terminalPrompt = false;
     link?.send({ type: "wilco_terminal_prompt_end" });
   });
 }
