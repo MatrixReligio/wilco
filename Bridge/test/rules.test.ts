@@ -94,6 +94,15 @@ describe("Wilco's own files", () => {
   test("other commands are unaffected", () => {
     expect(guarded("bash", { command: "ls" })).toEqual({ ask: false });
   });
+
+  test("case does not hide them (macOS volumes ignore case)", () => {
+    expect(guarded("bash", { command: `rm "${protectedDir.toUpperCase()}/policy.json"` })).toMatchObject({ ask: true, reason: "protected" });
+    expect(guarded("write", { path: `${protectedDir.toUpperCase()}/POLICY.JSON` })).toMatchObject({ ask: true, reason: "protected" });
+  });
+
+  test("a path that cannot be resolved is treated as theirs", () => {
+    expect(guarded("write", { path: "\0bad" })).toMatchObject({ ask: true, reason: "protected" });
+  });
 });
 
 describe("symbolic links", () => {

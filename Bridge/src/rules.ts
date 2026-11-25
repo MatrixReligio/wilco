@@ -72,7 +72,7 @@ export function assess(
     if (typeof target !== "string" || target.trim() === "") return { ask: false };
     const verb = toolName === "write" ? "write" : "edit";
     const resolved = resolvePath(target, cwd, home);
-    if (protectedPaths.some((dir) => isInside(resolved, dir))) {
+    if (protectedPaths.some((dir) => mayBeInside(resolved, dir))) {
       return question("protected", `${verb}: ${target}`, `Pi wants to ${verb} one of wilco-guard's own files:\n\n${resolved}`, "wilco-guard's files");
     }
     if (!policy.outsideWorkspace || isInside(resolved, cwd)) return { ask: false };
@@ -108,6 +108,17 @@ function isInside(target: string, root: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+/**
+ * For protection: whether `target` could be within `root`, ignoring case (macOS volumes usually do)
+ * and assuming the worst when a path cannot be resolved.
+ */
+function mayBeInside(target: string, root: string): boolean {
+  const real = realResolve(target), realRoot = realResolve(path.resolve(root));
+  if (real === undefined || realRoot === undefined) return true;
+  const relative = path.relative(realRoot.toLowerCase(), real.toLowerCase());
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
 /** The path with every symbolic link in its existing part resolved; undefined when that fails. */
 function realResolve(target: string): string | undefined {
   let existing = path.resolve(target);
@@ -119,6 +130,7 @@ function realResolve(target: string): string | undefined {
       rest.unshift(path.basename(existing));
       existing = parent;
     }
+    if (target.includes("\0")) return undefined;
     return path.join(realpathSync(existing), ...rest);
   } catch {
     return undefined;
@@ -129,9 +141,9 @@ function realResolve(target: string): string | undefined {
 function mentions(command: string, directories: string[], home: string): boolean {
   if (directories.length === 0) return false;
   const words = lex(command).flatMap((t) => ("word" in t ? [t.word] : []));
-  const texts = [command, ...words.map((w) => (w === "~" ? home : w.startsWith("~/") ? path.join(home, w.slice(2)) : w))];
+  const texts = [command, ...words.map((w) => (w === "~" ? home : w.startsWith("~/") ? path.join(home, w.slice(2)) : w))].map((t) => t.toLowerCase());
   return directories.some((dir) => {
-    const forms = [dir, dir.startsWith(home + "/") ? "~" + dir.slice(home.length) : dir];
+    const forms = [dir, dir.startsWith(home + "/") ? "~" + dir.slice(home.length) : dir].map((f) => f.toLowerCase());
     return texts.some((text) => forms.some((form) => text.includes(form)));
   });
 }

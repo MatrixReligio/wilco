@@ -16,7 +16,7 @@ What it asks about:
 
 Commands are also asked about when their target cannot be read (`$CMD`, `$(…)` in the command position); wrappers such as `env`, `nice`, `timeout`, `xargs`, `sh -c` and `eval` are looked through. Touching wilco-guard's own folder (its policy and code) is always asked about, whatever the rules say.
 
-The rules are a safety net, not a sandbox: a determined command can still get past simple pattern matching (for example through a script file). Use strict mode when that matters.
+The rules are a safety net against mistakes, not a sandbox: Pi runs as you, so a command that sets out to get past them can (for example through a script file). Use strict mode when that matters.
 
 ### With Wilco Host
 
