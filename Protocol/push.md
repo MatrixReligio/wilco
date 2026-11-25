@@ -19,12 +19,12 @@ The plaintext is a JSON object:
 | `workspaceID`, `workspaceName` | string | the folder |
 | `sessionID` | string | the session |
 | `sessionName` | string? | its name |
-| `dialog` | object? | for `approval`: `{id, method, title, message?}` of the waiting `extension_ui_request` |
+| `dialog` | object? | for `approval`: `{id, method, title, message?, shortened?}` of the waiting `extension_ui_request` |
 | `detail` | string? | why the run failed, or the start of Pi's last answer; at most 300 characters |
 | `steps` | integer? | tools Pi used in the run |
 | `duration` | number? | seconds the run took |
 
-When a message would not fit, the Host shortens `detail`, then `dialog.message`, ending each with "…".
+Names (`hostName`, `workspaceName`, `sessionName`) are at most 100 characters. When a message would not fit, the Host shortens `detail`, then `dialog.message`, then `dialog.title`, ending each with "…"; a question cut short carries `dialog.shortened: true`, and a device offers no answer to it in the notification.
 
 ## Push service
 

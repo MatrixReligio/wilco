@@ -19,12 +19,12 @@ Wilco Host 通过通知告诉设备有询问在等待回答，或者某次运行
 | `workspaceID`、`workspaceName` | 字符串 | 文件夹 |
 | `sessionID` | 字符串 | 会话 |
 | `sessionName` | 字符串？ | 会话名称 |
-| `dialog` | 对象？ | 用于 `approval`：正在等待的 `extension_ui_request` 的 `{id, method, title, message?}` |
+| `dialog` | 对象？ | 用于 `approval`：正在等待的 `extension_ui_request` 的 `{id, method, title, message?, shortened?}` |
 | `detail` | 字符串？ | 运行失败的原因，或 Pi 最后回答的开头；最多 300 个字符 |
 | `steps` | 整数？ | 本次运行中 Pi 使用的工具数 |
 | `duration` | 数字？ | 本次运行用时（秒） |
 
-消息放不下时，Host 先缩短 `detail`，再缩短 `dialog.message`，并以"…"结尾。
+名称（`hostName`、`workspaceName`、`sessionName`）最多 100 个字符。消息放不下时，Host 依次缩短 `detail`、`dialog.message`、`dialog.title`，并以"…"结尾；被缩短的询问带有 `dialog.shortened: true`，设备不会在通知中为它提供回答按钮。
 
 ## 推送服务
 
