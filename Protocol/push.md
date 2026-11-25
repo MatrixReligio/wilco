@@ -57,6 +57,16 @@ A Live Activity update:
 
 APNs receives `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…,"dismissal-date"?:…}}`, push type `liveactivity`, priority 10 while `needsApproval`, otherwise 5. The activity's content is not sealed, so it carries no text from the session: counts, times, and the question's id.
 
+`needsApproval` is true only while the waiting question is a yes-or-no one (`method` `"confirm"`), and `dialog` is then its `id`. For any other question both are left out: the activity can only open the app.
+
+## On the device
+
+These are the rules the Wilco app follows; another client should follow them too.
+
+- **Approving from a notification.** An `approval` notification offers Approve and Deny only when it shows the whole question: a `confirm` of at most 200 characters made of letters, numbers, punctuation, symbols and plain spaces. Line breaks, other invisible characters and combining marks are not allowed, so nothing can hide in what the person approves. For wilco-guard's questions the full command in `dialog.message` decides this, not the shortened title. Any other question opens the app. Both buttons need the device unlocked.
+- **A message that cannot be opened.** If the device cannot open the sealed message (no key, or another version), it shows the push's fallback text with no buttons and nothing a tap acts on.
+- **Live Activities.** The activity shows progress, the step count and the time since the run started, with the folder's and the Host's names. While `needsApproval` is true it offers Deny, which answers the question with `dialog` as its id, and a button that opens the question. It never offers Approve: it does not show the command.
+
 Replies:
 
 | Status | Meaning |

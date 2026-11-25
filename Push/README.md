@@ -32,6 +32,10 @@ Notifications reach an app only through its own APNs topic and key, so a push se
 
 3. `npm run deploy`, then point Wilco Host at the Worker's URL.
 
+## Why the App Store app uses Wilco's push service
+
+Apple delivers a notification only when it is sent with a key from the same developer team as the app it is for, to that app's bundle identifier. The App Store app is signed by Wilco's team, so only Wilco's push service can reach it; a service of your own can reach only a build you sign yourself. What you give up is small: notifications are sealed on your Mac to your device, so the push service sees only the device token, the time and the size of each message, never what it says.
+
 ## Limits
 
 30 pushes a minute per device token and 300 per minute per sender address (Workers rate-limiting bindings `PUSH_LIMIT` and `IP_LIMIT` in `wrangler.toml`).

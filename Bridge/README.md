@@ -4,7 +4,7 @@
 
 ## wilco-guard
 
-wilco-guard asks for your approval, through Pi's extension UI, before risky tool calls. In a session started by Wilco Host the question reaches your iPhone or iPad. If you are away, it arrives as a notification you can approve from the lock screen. Questions have no time limit: Pi waits until you answer.
+wilco-guard asks for your approval, through Pi's extension UI, before risky tool calls. In a session started by Wilco Host the question reaches your iPhone or iPad. If you are away, it arrives as a notification; when the whole command fits in it, you can approve or deny it from the lock screen, otherwise it opens the question in the app. Questions have no time limit: Pi waits until you answer.
 
 What it asks about:
 

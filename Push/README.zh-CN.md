@@ -32,6 +32,10 @@ npm run typecheck
 
 3. 运行 `npm run deploy`，然后让 Wilco Host 使用该 Worker 的地址。
 
+## 为什么 App Store 版本使用 Wilco 的推送服务
+
+Apple 只会投递用与 App 同一开发者团队的密钥、发往该 App bundle identifier 的通知。App Store 版本由 Wilco 的团队签名，因此只有 Wilco 的推送服务能送达它；你自建的服务只能送达你自己签名的构建。这样做几乎没有损失：通知在你的 Mac 上就已加密，只有你的设备能解开，推送服务只能看到设备 token、时间和每条消息的大小，看不到内容。
+
 ## 限制
 
 每个设备令牌每分钟 30 条，每个发送地址每分钟 300 条（`wrangler.toml` 中的 Workers 限流绑定 `PUSH_LIMIT` 与 `IP_LIMIT`）。

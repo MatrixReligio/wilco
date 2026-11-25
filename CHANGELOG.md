@@ -7,6 +7,10 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 ## [Unreleased]
 
 ### Added
+- `Bridge/` wilco-guard: Pi asks for approval before dangerous commands and writes outside the session's folder; command substitutions, wrappers and links are looked through, and anything it cannot read is asked about.
+- `Protocol/push.md`: sealed notifications (HPKE to each device's key) and Live Activity updates, and the rules a device follows before it offers Approve on the Lock Screen.
+- `Push/`: the push Worker, which passes sealed notifications and Live Activity updates to APNs without being able to read them.
+- `docs/*/notifications-and-approvals.md`: approvals, encrypted notifications, Live Activities, widgets, Siri and Shortcuts.
 - Project documentation in English and Simplified Chinese.
 - `Tools/mock-llm`: scripted, OpenAI-compatible streaming server for deterministic Pi tests.
 - `Tools/fixture-recorder`: records normalized Pi RPC transcripts in an isolated environment.

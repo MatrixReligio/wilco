@@ -68,6 +68,7 @@ The iOS app and the Mac host are developed in a separate repository and distribu
 - [Architecture](docs/en/architecture.md)
 - [Security model](docs/en/security-model.md)
 - [Protocol overview](docs/en/protocol.md)
+- [Approvals and notifications](docs/en/notifications-and-approvals.md)
 - [Self-hosting the relay](docs/en/self-hosting-relay.md)
 - [FAQ](docs/en/faq.md)
 
