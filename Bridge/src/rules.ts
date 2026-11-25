@@ -157,12 +157,14 @@ const UNCLEAR = "\u0000unclear";
 
 /**
  * The index of the ")" that ends the command substitution starting at `start` (just after "$("),
- * skipping quoted text; -1 when it does not end, or contains a comment or backtick (not read here).
+ * skipping quoted text; -1 when it does not end, or holds what is not read here: a backtick, a "#"
+ * (a comment hides the rest of its line), "$'" quoting or a case statement (whose ")" ends no group).
  */
 function closingParen(text: string, start: number): number {
   let depth = 1;
   for (let k = start; k < text.length; k++) {
     const c = text[k];
+    if (c === "#" || c === "`" || (c === "$" && text[k + 1] === "'") || /(^|[^\w])(case|esac)([^\w]|$)/.test(text.slice(k, k + 5))) return -1;
     if (c === "\\") k++;
     else if (c === "'") {
       k = text.indexOf("'", k + 1);
@@ -171,8 +173,7 @@ function closingParen(text: string, start: number): number {
       k++;
       while (k < text.length && text[k] !== '"') k += text[k] === "\\" ? 2 : 1;
       if (k >= text.length) return -1;
-    } else if (c === "`" || (c === "#" && (k === start || /\s|;|\(/.test(text[k - 1])))) return -1;
-    else if (c === "(") depth++;
+    } else if (c === "(") depth++;
     else if (c === ")" && --depth === 0) return k;
   }
   return -1;
