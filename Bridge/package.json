@@ -1,7 +1,7 @@
 {
   "name": "@matrixreligio/wilco",
   "version": "0.1.0",
-  "description": "Pi extensions for Wilco: wilco-guard asks before risky tool calls",
+  "description": "Pi extensions for Wilco: wilco-guard asks before risky tool calls; wilco-bridge brings terminal sessions to Wilco",
   "license": "MIT",
   "type": "module",
   "keywords": [
@@ -27,7 +27,8 @@
   ],
   "pi": {
     "extensions": [
-      "src/guard.ts"
+      "src/guard.ts",
+      "src/bridge.ts"
     ]
   },
   "scripts": {
