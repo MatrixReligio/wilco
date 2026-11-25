@@ -79,6 +79,18 @@ describe('worker', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('stops reading a body once it is too large', async () => {
+    const { calls, fetcher } = apns(200);
+    const env = await fakeEnv();
+    // A body that never ends: reading it whole would never finish.
+    const endless = new ReadableStream<Uint8Array>({ pull: (controller) => controller.enqueue(new Uint8Array(1024).fill(32)) });
+    const request = new Request('https://push.test/v1/push', { method: 'POST', body: endless, duplex: 'half' } as RequestInit);
+    expect((await handle(request, env, { fetch: fetcher, now: () => 1 })).status).toBe(413);
+    const claimed = new Request('https://push.test/v1/push', { method: 'POST', body: '{}', headers: { 'content-length': '999999' } });
+    expect((await handle(claimed, env, { fetch: fetcher, now: () => 1 })).status).toBe(413);
+    expect(calls).toHaveLength(0);
+  }, 3000);
+
   it('serves only POST /v1/push and a health check', async () => {
     expect((await SELF.fetch('https://push.test/v1/push')).status).toBe(404);
     expect((await SELF.fetch('https://push.test/elsewhere', { method: 'POST' })).status).toBe(404);

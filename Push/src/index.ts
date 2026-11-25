@@ -35,6 +35,33 @@ async function sha256Hex(text: string): Promise<string> {
   return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** The body as text, or undefined once it is larger than `limit` bytes (reading stops there). */
+async function readCapped(request: Request, limit: number): Promise<string | undefined> {
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (!Number.isFinite(declared) || declared > limit) return undefined;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => {});
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 export async function handle(request: Request, env: Env, deps: Dependencies): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === '/health' && request.method === 'GET') return new Response('ok');
@@ -43,8 +70,8 @@ export async function handle(request: Request, env: Env, deps: Dependencies): Pr
   const address = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   if (!(await env.IP_LIMIT.limit({ key: address })).success) return json(429, { error: 'too many requests' });
 
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return json(413, { error: 'too large' });
+  const text = await readCapped(request, MAX_BODY_BYTES);
+  if (text === undefined) return json(413, { error: 'too large' });
   let body: unknown;
   try {
     body = JSON.parse(text);
