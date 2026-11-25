@@ -7,9 +7,36 @@ import { assess, loadPolicy } from "./rules.ts";
 
 // Only the parts of Pi's ExtensionAPI this extension uses, so it has no dependencies.
 type ToolCallEvent = { toolName: string; toolCallId: string; input: unknown };
-type GuardContext = { cwd: string; hasUI: boolean; ui: { confirm(title: string, message: string): Promise<boolean> } };
+type GuardContext = {
+  cwd: string;
+  hasUI: boolean;
+  ui: { confirm(title: string, message: string, options?: { signal?: AbortSignal }): Promise<boolean> };
+};
+/** What wilco-bridge (in a terminal session) listens for, to ask on the phone too. */
+export type WilcoAsk = { title: string; message: string; signal: AbortSignal; answer(confirmed: boolean): void };
 type Block = { block: true; reason: string };
-type GuardAPI = { on(event: "tool_call", handler: (event: ToolCallEvent, ctx: GuardContext) => Promise<Block | undefined>): void };
+type GuardAPI = {
+  on(event: "tool_call", handler: (event: ToolCallEvent, ctx: GuardContext) => Promise<Block | undefined>): void;
+  events?: { emit(topic: string, data: unknown): void };
+};
+
+/** Asks in Pi's UI and, through wilco-bridge when it listens, on the phone: the first answer counts. */
+async function ask(pi: GuardAPI, ctx: GuardContext, title: string, message: string): Promise<boolean> {
+  const terminal = new AbortController();
+  const phone = new AbortController();
+  let fromPhone: (confirmed: boolean) => void = () => {};
+  const phoneAnswer = new Promise<boolean>((resolve) => { fromPhone = resolve; });
+  const question: WilcoAsk = {
+    title, message, signal: phone.signal,
+    answer: (confirmed) => { if (!phone.signal.aborted) fromPhone(confirmed); },
+  };
+  pi.events?.emit("wilco:ask", question);
+  const fromTerminal = ctx.ui.confirm(title, message, { signal: terminal.signal }).then((confirmed) => ({ confirmed, terminal: true }));
+  const first = await Promise.race([fromTerminal, phoneAnswer.then((confirmed) => ({ confirmed, terminal: false }))]);
+  if (first.terminal) phone.abort();
+  else terminal.abort();
+  return first.confirmed;
+}
 
 export default function wilcoGuard(pi: GuardAPI): void {
   // Read once and removed, so the commands Pi runs do not inherit where the policy lives. The
@@ -29,7 +56,7 @@ export default function wilcoGuard(pi: GuardAPI): void {
     const why = result.label ?? (result.reason === "outsideWorkspace" ? "outside the workspace" : "every command needs approval");
     if (!ctx.hasUI) return { block: true, reason: `Blocked by wilco-guard: there is no one to ask (${why})` };
     // No timeout: the question waits until someone answers it in Wilco.
-    const approved = await ctx.ui.confirm(result.title, result.message);
+    const approved = await ask(pi, ctx, result.title, result.message);
     return approved ? undefined : { block: true, reason: `Blocked in Wilco: the owner declined (${why})` };
   });
 }

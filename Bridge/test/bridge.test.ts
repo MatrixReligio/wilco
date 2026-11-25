@@ -75,7 +75,13 @@ function fakePi() {
   const commands = new Map<string, Rec>();
   const pi: Rec = {
     on: (name: string, handler: (event: Rec, ctx: Rec) => unknown) => handlers.set(name, [...(handlers.get(name) ?? []), handler]),
-    events: { on: () => {}, emit: () => {} },
+    events: (() => {
+      const listeners = new Map<string, ((data: any) => void)[]>();
+      return {
+        on: (topic: string, h: (data: any) => void) => listeners.set(topic, [...(listeners.get(topic) ?? []), h]),
+        emit: (topic: string, data: unknown) => (listeners.get(topic) ?? []).forEach((h) => h(data)),
+      };
+    })(),
     sendUserMessage: (content: unknown, options?: Rec) => did.push({ send: content, ...(options ?? {}) }),
     setModel: async (model: Rec) => (did.push({ setModel: model }), true),
     setThinkingLevel: (level: string) => did.push({ thinking: level }),
@@ -251,6 +257,29 @@ test("a follower takes no typed input until it is handed the session", async () 
   await new Promise((r) => setTimeout(r, 100));
   expect(pi.did).toContainEqual({ send: "/wilco-reload", expandPromptTemplates: true });
   expect(pi.commands.has("wilco-reload")).toBe(true);
+});
+
+test("wilco-guard's question goes to the phone, and the phone's answer comes back", async () => {
+  const pi = await welcomed();
+  const answers: boolean[] = [];
+  const first = new AbortController();
+  pi.pi.events.emit("wilco:ask", { title: "wilco-guard: run: ls", message: "Pi wants to run a command:\n\nls", signal: first.signal, answer: (v: boolean) => answers.push(v) });
+  await host.until(() => host.of("extension_ui_request").length === 1);
+  const request = host.of("extension_ui_request")[0];
+  expect(request).toMatchObject({ method: "confirm", title: "wilco-guard: run: ls", message: "Pi wants to run a command:\n\nls" });
+  host.send({ type: "extension_ui_response", id: request.id, confirmed: true });
+  await new Promise((r) => setTimeout(r, 100));
+  expect(answers).toEqual([true]);
+  // Answered in the terminal first: the phone is told the question is gone.
+  const second = new AbortController();
+  pi.pi.events.emit("wilco:ask", { title: "wilco-guard: run: pwd", message: "m", signal: second.signal, answer: (v: boolean) => answers.push(v) });
+  await host.until(() => host.of("extension_ui_request").length === 2);
+  second.abort();
+  await host.until(() => host.of("wilco_dialog_closed").length === 1);
+  expect(host.of("wilco_dialog_closed")[0]).toEqual({ type: "wilco_dialog_closed", id: host.of("extension_ui_request")[1].id });
+  host.send({ type: "extension_ui_response", id: host.of("extension_ui_request")[1].id, cancelled: true });
+  await new Promise((r) => setTimeout(r, 50));
+  expect(answers).toEqual([true]);
 });
 
 test("a terminal question from another extension is shown on the phone", async () => {

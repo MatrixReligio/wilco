@@ -244,8 +244,27 @@ export default function wilcoBridge(pi: BridgeAPI): void {
     link = undefined;
   });
 
+  // wilco-guard's questions, asked on the phone too while this terminal writes the session.
+  const asked = new Map<string, (confirmed: boolean) => void>();
+  let nextQuestion = 1;
+  pi.events.on("wilco:ask", (question: { title: string; message: string; signal: AbortSignal; answer(confirmed: boolean): void }) => {
+    if (link?.role !== "writer" || question.signal.aborted) return;
+    const id = `wilco-bridge-${process.pid}-${nextQuestion++}`;
+    asked.set(id, question.answer);
+    link.send({ type: "extension_ui_request", id, method: "confirm", title: question.title, message: question.message });
+    question.signal.addEventListener("abort", () => {
+      if (asked.delete(id)) link?.send({ type: "wilco_dialog_closed", id });
+    });
+  });
+
   async function answer(record: Rec): Promise<void> {
-    if (typeof record.type !== "string" || record.type === "extension_ui_response") return;
+    if (typeof record.type !== "string") return;
+    if (record.type === "extension_ui_response") {
+      const reply = asked.get(String(record.id));
+      asked.delete(String(record.id));
+      reply?.(record.confirmed === true);
+      return;
+    }
     link?.send(await runCommand(record, env));
   }
 

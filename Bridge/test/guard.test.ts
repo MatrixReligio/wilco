@@ -40,3 +40,53 @@ test("Wilco's files are protected even with every rule off", async () => {
   expect(asked).toHaveLength(1);
   expect(result).toMatchObject({ block: true });
 });
+
+/** A Pi event bus like pi.events. */
+function bus() {
+  const listeners = new Map<string, ((data: any) => void)[]>();
+  return {
+    on: (topic: string, handler: (data: any) => void) => listeners.set(topic, [...(listeners.get(topic) ?? []), handler]),
+    emit: (topic: string, data: unknown) => (listeners.get(topic) ?? []).forEach((h) => h(data)),
+  };
+}
+
+const risky = { toolName: "bash", toolCallId: "1", input: { command: "rm -rf build" } };
+
+test("from a terminal session, the phone can answer first", async () => {
+  const events = bus();
+  let terminalSignal: AbortSignal | undefined;
+  events.on("wilco:ask", (ask) => {
+    expect(ask.title).toBe("wilco-guard: run: rm -rf build");
+    setTimeout(() => ask.answer(true), 10);
+  });
+  let handler: any;
+  wilcoGuard({ on: (_event, h) => (handler = h), events });
+  const ctx = {
+    cwd: "/work", hasUI: true,
+    ui: { confirm: (_t: string, _m: string, options?: { signal?: AbortSignal }) => new Promise<boolean>((resolve) => {
+      terminalSignal = options?.signal;
+      options?.signal?.addEventListener("abort", () => resolve(false));
+    }) },
+  };
+  expect(await handler(risky, ctx)).toBeUndefined();
+  expect(terminalSignal?.aborted).toBe(true);
+});
+
+test("an answer in the terminal closes the question on the phone", async () => {
+  const events = bus();
+  let phone: any;
+  events.on("wilco:ask", (ask) => { phone = ask; });
+  let handler: any;
+  wilcoGuard({ on: (_event, h) => (handler = h), events });
+  const ctx = { cwd: "/work", hasUI: true, ui: { confirm: async () => false } };
+  expect(await handler(risky, ctx)).toMatchObject({ block: true });
+  expect(phone.signal.aborted).toBe(true);
+  phone.answer(true); // too late: ignored
+});
+
+test("with no bridge listening, only the terminal is asked", async () => {
+  let handler: any;
+  wilcoGuard({ on: (_event, h) => (handler = h), events: bus() });
+  const ctx = { cwd: "/work", hasUI: true, ui: { confirm: async () => true } };
+  expect(await handler(risky, ctx)).toBeUndefined();
+});
