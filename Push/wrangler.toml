@@ -1,0 +1,34 @@
+name = "wilco-push"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Secrets (wrangler secret put): APNS_PRIVATE_KEY (the .p8 key), APNS_KEY_ID, APNS_TEAM_ID,
+# APNS_TOPIC (the app's bundle identifier).
+
+# 30 pushes a minute per device token, 300 per minute per sender address.
+[[ratelimits]]
+name = "PUSH_LIMIT"
+namespace_id = "7301"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "IP_LIMIT"
+namespace_id = "7302"
+simple = { limit = 300, period = 60 }
+
+# The hosted push service (`npm run deploy:hosted`). Bindings are not inherited, so they are repeated.
+[env.production]
+name = "wilco-push"
+workers_dev = true
+preview_urls = false
+routes = [{ pattern = "wilco-push.matrixreligio.com", custom_domain = true }]
+
+[[env.production.ratelimits]]
+name = "PUSH_LIMIT"
+namespace_id = "7301"
+simple = { limit = 30, period = 60 }
+
+[[env.production.ratelimits]]
+name = "IP_LIMIT"
+namespace_id = "7302"
+simple = { limit = 300, period = 60 }

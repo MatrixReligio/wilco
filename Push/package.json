@@ -1,0 +1,25 @@
+{
+  "name": "@matrixreligio/wilco-push",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wilco push: delivers sealed notifications and Live Activity updates to Wilco devices through APNs",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:hosted": "wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.9.1",
+    "@cloudflare/workers-types": "^5.20261124.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1",
+    "wrangler": "^4.167.0"
+  }
+}
