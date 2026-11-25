@@ -30,9 +30,14 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
 | `relay` | Host → device | `url`, `channel`, `token`: how to reach this Host through the [relay](relay.md); sent after `hello.ok` while the Host uses a relay, and again when that changes. A device keeps the latest one. |
+| `guard.policy.get` | device → Host | none |
+| `guard.policy.set` | device → Host | `policy`: `{dangerousCommands, outsideWorkspace, allBash}` (booleans; a missing rule keeps its default: `true`, `true`, `false`) |
+| `guard.policy.result` | Host → device | `policy`: the rules now in force. Reply to both requests. |
 | `error` | either | `code`, `message`, `requestType?` |
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`.
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`).
+
+wilco-guard's questions are ordinary `confirm` extension UI requests whose `title` starts with `wilco-guard: `. They have no `timeout`: Pi waits until a device answers.
 
 ## Error codes
 

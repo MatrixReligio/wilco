@@ -30,9 +30,14 @@
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
 | `relay` | Host → 设备 | `url`、`channel`、`token`：如何通过[中继](relay.zh-CN.md)连接这台 Host；Host 使用中继时在 `hello.ok` 之后发送，变化时再次发送。设备保留最新的一份。 |
+| `guard.policy.get` | 设备 → Host | 无 |
+| `guard.policy.set` | 设备 → Host | `policy`：`{dangerousCommands, outsideWorkspace, allBash}`（布尔值；缺少的规则保持默认值：`true`、`true`、`false`） |
+| `guard.policy.result` | Host → 设备 | `policy`：当前生效的规则。两个请求都以它回复。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`。
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）。
+
+wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilco-guard: ` 开头，且没有 `timeout`：Pi 会一直等到某台设备作答。
 
 ## 错误码
 
