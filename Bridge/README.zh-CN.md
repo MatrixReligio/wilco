@@ -40,12 +40,29 @@ pi install npm:@matrixreligio/wilco
 
 ## wilco-bridge
 
-wilco-bridge（计划在 M4 里程碑实现）将通过本地 Unix 套接字把 Pi 的 TUI 会话连接到 Wilco Host，让你在手机上跟随并操作它。
+wilco-bridge 把你在“终端”里启动的 Pi 会话带到 iPhone 和 iPad 上的 Wilco。Wilco Host 会把这个会话标为**在 Mac 终端中**，你可以在手机上实时跟随它、继续在其中工作，终端里显示的仍是同一个会话。
+
+### 安装
+
+- **通过 Wilco Host：**在 Wilco Host 设置的 Pi 页面中，点按“终端会话”下的**安装**。Wilco Host 会用它自带的 wilco-bridge 执行 `pi install`；**移除**可以撤销。
+- **单独安装：**`pi install npm:@matrixreligio/wilco` 会同时安装 wilco-bridge 和 wilco-guard。
+
+安装之后启动的 Pi 会话会加载它。会话所在的文件夹必须已在 Wilco Host 中共享；对其他文件夹，扩展什么也不做。
+
+### 手机上能做什么
+
+发送提示、插话引导和追加消息、停止运行、切换模型和思考级别、为会话命名和压缩会话，以及回答 wilco-guard 的询问（前提是 Pi 中也装了 wilco-guard）。终端无法从外部完成的操作，App 不会提供，例如清空排队的消息或运行 `!` shell 命令。其他扩展在终端里提出的问题只能在终端里回答。
+
+### 一个会话，一个写入方
+
+同一时间只有一个 Pi 运行某个会话：Wilco Host 自己的 Pi，或者终端里的 Pi。如果你在终端里打开一个正由 Wilco Host 的 Pi 持有的会话，Host 会把它交给终端：Pi 空闲时立即交接，否则等当前这次运行结束后交接。在此之前终端只跟随，不接受输入（Pi 会提示）。关闭终端后，下次在手机上打开这个会话时，Wilco Host 会用自己的 Pi 接着运行。
+
+wilco-bridge 通过只有你的 Mac 用户能打开的套接字与 Wilco Host 通信：`~/Library/Application Support/Wilco/Host/bridge.sock`（可用 `WILCO_BRIDGE_SOCKET` 指定其他路径）。Wilco Host 未运行时，它会在后台持续重试，终端照常可用。协议见 [Protocol/bridge.zh-CN.md](../Protocol/bridge.zh-CN.md)。
 
 ## 开发
 
 ```sh
 npm install
-npm test          # 规则测试；装有 pi 时还会运行真实 Pi（隔离环境：临时 HOME，不会碰你的 ~/.pi）
+npm test          # 规则和 bridge 测试；装有 pi 时还会运行真实 Pi（包括在伪终端中运行的 TUI；隔离环境：临时 HOME，不会碰你的 ~/.pi）
 npm run typecheck
 ```

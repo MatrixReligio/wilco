@@ -7,6 +7,9 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 ## [Unreleased]
 
 ### Added
+- `Bridge/` wilco-bridge: a Pi session open in the Mac terminal reaches Wilco on the phone, which can follow it and send prompts, steering, stops and answers; one writer per session, with the terminal waiting for Wilco Host's run to end before it takes over.
+- `Protocol/bridge.md`: the terminal bridge protocol (Unix socket, hello and roles, the records a terminal sends); `Protocol/control.md`: session activity carries `writer` and `terminalCommands`.
+- `docs/*/terminal-sessions.md`: using terminal sessions from the phone.
 - `Bridge/` wilco-guard: Pi asks for approval before dangerous commands and writes outside the session's folder; command substitutions, wrappers and links are looked through, and anything it cannot read is asked about.
 - `Protocol/push.md`: sealed notifications (HPKE to each device's key) and Live Activity updates, and the rules a device follows before it offers Approve on the Lock Screen.
 - `Push/`: the push Worker, which passes sealed notifications and Live Activity updates to APNs without being able to read them.

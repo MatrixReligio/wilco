@@ -40,12 +40,29 @@ Questions use `ctx.ui.confirm`, with a title that starts with `wilco-guard: `. W
 
 ## wilco-bridge
 
-wilco-bridge (planned for milestone M4) will connect a Pi TUI session to Wilco Host over a local Unix socket, so your phone can follow and drive it.
+wilco-bridge brings a Pi session you started in Terminal to Wilco on your iPhone and iPad. Wilco Host lists the session with **In the Mac terminal**, and you can follow it live and keep working in it from the phone while the terminal shows the same session.
+
+### Install
+
+- **From Wilco Host:** open the Pi page in Wilco Host's settings and click **Install** under Terminal sessions. Wilco Host runs `pi install` with the copy of wilco-bridge it bundles; **Remove** undoes it.
+- **On its own:** `pi install npm:@matrixreligio/wilco` installs wilco-bridge together with wilco-guard.
+
+Pi sessions started after installing load it. The session's folder must be one you share in Wilco Host; for other folders the extension does nothing.
+
+### What works from the phone
+
+Sending prompts, steering and follow-ups, stopping a run, changing the model and thinking level, naming and compacting the session, and answering wilco-guard's questions (when wilco-guard is installed in Pi too). The app does not offer what the terminal cannot do from outside, such as clearing queued messages or running `!` shell commands. A question another extension asks in the terminal can be answered only there.
+
+### One session, one writer
+
+A session is run by one Pi at a time: Wilco Host's own, or the terminal's. If you open a session in Terminal that Wilco Host's Pi holds, the Host hands it over: at once when its Pi is idle, otherwise when the current run ends. Until then the terminal follows and does not take typing (Pi says so). When you close the terminal, the next time you open the session on your phone Wilco Host continues it with its own Pi.
+
+wilco-bridge talks to Wilco Host over a socket only your Mac user can open: `~/Library/Application Support/Wilco/Host/bridge.sock` (`WILCO_BRIDGE_SOCKET` names another). If Wilco Host is not running, it keeps trying in the background and the terminal works as usual. The protocol is in [Protocol/bridge.md](../Protocol/bridge.md).
 
 ## Develop
 
 ```sh
 npm install
-npm test          # rules, plus a real Pi run when pi is installed (isolated: temp HOME, never your ~/.pi)
+npm test          # rules and the bridge, plus real Pi runs (TUI on a pseudo-terminal too) when pi is installed (isolated: temp HOME, never your ~/.pi)
 npm run typecheck
 ```
