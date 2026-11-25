@@ -42,7 +42,7 @@ Wilco Host 通过通知告诉设备有询问在等待回答，或者某次运行
 | `thread` | base64url，最多 64 个字符：把同一会话的通知归为一组 |
 | `collapse` | 可选，最多 64 个字符：取值相同的新通知会替换旧通知 |
 
-APNs 收到 `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_<CATEGORY>","thread-id":…},"w":<sealed>}`，推送类型 `alert`。设备上的通知服务扩展打开 `w` 并写出通知内容；只有打不开时才显示本地化的备用文字。`finished` 通知没有声音，优先级为 5；其他为 10。
+APNs 收到 `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_UNOPENED","thread-id":…},"w":<sealed>}`，推送类型 `alert`。设备上的通知服务扩展打开 `w`，写出通知内容并设置真正的类别（及其按钮）；只有打不开时才显示本地化的备用文字，且没有按钮。`finished` 通知没有声音，优先级为 5；其他为 10。
 
 实时活动更新：
 

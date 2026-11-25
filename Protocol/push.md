@@ -42,7 +42,7 @@ An alert:
 | `thread` | base64url, at most 64 characters: groups a session's notifications |
 | `collapse` | optional, at most 64 characters: a newer notification with the same value replaces the older one |
 
-APNs receives `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_<CATEGORY>","thread-id":…},"w":<sealed>}`, push type `alert`. The device's notification service extension opens `w` and writes the notification; the localized fallback is shown only if it cannot. A `finished` notification has no sound and priority 5; the others have priority 10.
+APNs receives `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_UNOPENED","thread-id":…},"w":<sealed>}`, push type `alert`. The device's notification service extension opens `w`, writes the notification and sets its real category (with its buttons); the localized fallback, without buttons, is shown only if it cannot. A `finished` notification has no sound and priority 5; the others have priority 10.
 
 A Live Activity update:
 

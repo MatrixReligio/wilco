@@ -21,7 +21,7 @@ describe('apns payloads', () => {
       'apns-push-type': 'alert', 'apns-topic': 'com.example.wilco', 'apns-priority': '10', 'apns-collapse-id': 's1',
     });
     expect(JSON.parse(request.body)).toEqual({
-      aps: { alert: { 'loc-key': 'PUSH_FALLBACK_APPROVAL' }, 'mutable-content': 1, sound: 'default', category: 'WILCO_APPROVAL',
+      aps: { alert: { 'loc-key': 'PUSH_FALLBACK_APPROVAL' }, 'mutable-content': 1, sound: 'default', category: 'WILCO_UNOPENED',
              'thread-id': 'aG9zdC1zZXNzaW9u' },
       w: sealed,
     });
@@ -30,7 +30,7 @@ describe('apns payloads', () => {
   it('a finished run is not urgent and makes no sound', () => {
     const request = apnsRequest(push(alert({ category: 'finished' })), 'com.example.wilco', 1_800_000_000);
     expect(request.headers['apns-priority']).toBe('5');
-    expect(JSON.parse(request.body).aps).toMatchObject({ category: 'WILCO_FINISHED', alert: { 'loc-key': 'PUSH_FALLBACK_FINISHED' } });
+    expect(JSON.parse(request.body).aps).toMatchObject({ category: 'WILCO_UNOPENED', alert: { 'loc-key': 'PUSH_FALLBACK_FINISHED' } });
     expect(JSON.parse(request.body).aps.sound).toBeUndefined();
     expect(JSON.parse(apnsRequest(push(alert({ category: 'failed' })), 't', 0).body).aps.sound).toBe('default');
   });

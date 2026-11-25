@@ -20,7 +20,8 @@ function alert(push: AlertPush, topic: string, url: string): APNsRequest {
     // Shown only if the device cannot open the sealed message in time.
     alert: { 'loc-key': `PUSH_FALLBACK_${name}` },
     'mutable-content': 1,
-    category: `WILCO_${name}`,
+    // No buttons until the device has opened the message: its extension sets the real category.
+    category: 'WILCO_UNOPENED',
     'thread-id': push.thread,
   };
   // A finished run is news, not an interruption.
