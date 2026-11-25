@@ -34,7 +34,7 @@ The policy is read on every tool call from the JSON file named by `WILCO_GUARD_P
 { "dangerousCommands": true, "outsideWorkspace": true, "allBash": false }
 ```
 
-Touching the policy's folder, or any folder listed one per line in `WILCO_GUARD_PROTECT` (Wilco Host lists its state folder), is always asked about, whatever the rules. Both variables are removed from the environment once read, so the commands Pi runs do not inherit them. Commands are checked including `$(…)` and backtick substitutions, also inside double quotes.
+Touching the policy's folder, or any folder listed one per line in `WILCO_GUARD_PROTECT` (Wilco Host lists its state folder), is always asked about, whatever the rules. Both variables are removed from the environment once read, so the commands Pi runs do not inherit them. Commands are checked including `$(…)` and backtick substitutions, also inside double quotes; a substitution that cannot be read with confidence (unbalanced, with a comment, or backticks inside double quotes) is asked about as an indirect command.
 
 Questions use `ctx.ui.confirm`, with a title that starts with `wilco-guard: `. Without a UI to ask (for example `pi -p`), a call that would be asked about is blocked.
 

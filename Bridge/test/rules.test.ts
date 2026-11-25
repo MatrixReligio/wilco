@@ -58,9 +58,15 @@ describe("dangerous commands", () => {
     ["git -C repo -c a=b push -f", "git push --force"],
     ["/bin/rm -rf x", "rm -r"],
     ['echo "$(rm -rf build)"', "rm -r"],
-    ['x="`sudo ls`"', "sudo"],
+    ['x="`sudo ls`"', "indirect command"],
     ['echo "a $(echo "$(git push -f)") b"', "git push --force"],
     ['echo "$(cd x && rm -rf y)"', "rm -r"],
+    ['echo "$(echo ")"; rm -rf y)"', "rm -r"],
+    ["echo \"$(echo ')'; rm -rf y)\"", "rm -r"],
+    ['echo "$(echo # )\nrm -rf y)"', "indirect command"],
+    ['echo "$(unbalanced"', "indirect command"],
+    ['echo "`echo \\`rm -rf y\\``"', "indirect command"],
+    ['echo "today `date`"', "indirect command"],
   ])("%s asks despite the wrapping (%s)", (command, label) => {
     expect(bash(command)).toMatchObject({ ask: true, reason: "dangerous", label });
   });

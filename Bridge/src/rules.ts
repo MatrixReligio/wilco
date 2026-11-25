@@ -152,15 +152,30 @@ function mentions(command: string, directories: string[], home: string): boolean
 
 type Token = { op: string } | { word: string };
 
-/** The end of the command substitution whose text starts at `start` (just after "$("), or the end of the text. */
+/** Stands in `nested` for a substitution too unusual to read with confidence: it is asked about. */
+const UNCLEAR = "\u0000unclear";
+
+/**
+ * The index of the ")" that ends the command substitution starting at `start` (just after "$("),
+ * skipping quoted text; -1 when it does not end, or contains a comment or backtick (not read here).
+ */
 function closingParen(text: string, start: number): number {
   let depth = 1;
   for (let k = start; k < text.length; k++) {
-    if (text[k] === "\\") k++;
-    else if (text[k] === "(") depth++;
-    else if (text[k] === ")" && --depth === 0) return k;
+    const c = text[k];
+    if (c === "\\") k++;
+    else if (c === "'") {
+      k = text.indexOf("'", k + 1);
+      if (k < 0) return -1;
+    } else if (c === '"') {
+      k++;
+      while (k < text.length && text[k] !== '"') k += text[k] === "\\" ? 2 : 1;
+      if (k >= text.length) return -1;
+    } else if (c === "`" || (c === "#" && (k === start || /\s|;|\(/.test(text[k - 1])))) return -1;
+    else if (c === "(") depth++;
+    else if (c === ")" && --depth === 0) return k;
   }
-  return text.length;
+  return -1;
 }
 
 /**
@@ -189,17 +204,18 @@ function lex(command: string, nested: string[] = []): Token[] {
         if (command[j] === "\\" && j + 1 < command.length) j++;
         else if (command[j] === "$" && command[j + 1] === "(") {
           const end = closingParen(command, j + 2);
+          if (end < 0) {
+            nested.push(UNCLEAR);
+            break;
+          }
           nested.push(command.slice(j + 2, end));
           word += command.slice(j, end + 1);
           j = end + 1;
           continue;
         } else if (command[j] === "`") {
-          const end = command.indexOf("`", j + 1);
-          const stop = end < 0 ? command.length : end;
-          nested.push(command.slice(j + 1, stop));
-          word += command.slice(j, stop + 1);
-          j = stop + 1;
-          continue;
+          // Backticks in double quotes have their own escaping rules: never read, always asked about.
+          nested.push(UNCLEAR);
+          break;
         }
         word += command[j];
         j++;
@@ -266,6 +282,7 @@ export function dangerousCommand(command: string, depth = 0): string | undefined
   const nested: string[] = [];
   const tokens = lex(command, nested);
   for (const inner of nested) {
+    if (inner === UNCLEAR) return "indirect command";
     const label = dangerousCommand(inner, depth + 1);
     if (label) return label;
   }
