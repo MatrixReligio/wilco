@@ -81,6 +81,7 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 - **设备 → Host：**每个信封一条 Pi RPC 命令（不使用 `seq`，可为 0）。同一会话的命令按发送顺序到达 Pi；一条命令不必等前一条的响应（所以 `abort_bash` 能中断正在运行的 `bash`）。设备命令中的 `id` 会原样出现在响应里。Pi 在 60 秒内没有回应的命令以 `pi_timeout` 失败，Host 随后停止这个已不再响应的 Pi 进程（流以 `wilco_session_stopped` 结束；再次打开会话时重新启动 Pi）。`bash` 和 `compact` 要等工作完成 Pi 才回应，因此不设时限。
 - **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
 - **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。来自 Pi 的响应带有 `ack`：Pi 在它之前写出的最后一条流记录的 `seq`（本 epoch 内没有则为 0）。响应和流记录分开传输，到达顺序不定；`ack` 说明 `get_messages` 这类响应已经包含了哪些记录。另有一条 Host 记录也使用 `seq` 0：`{"type":"wilco_session_stopped"}`，在 Host 为落后的设备恢复流、却发现会话已经停止时发送。
+- `get_tree` 的回复是 `not_available`：Pi 的会话树每条记录嵌套一层 JSON，超过几百条记录后任何 JSON 解析器都读不了。请用 `get_entries`（扁平列表，每条记录带 `id` 和 `parentId`，另有 `leafId`）自行构建树。
 - 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。
 - 有三种记录来自 Host 而不是 Pi：`{"type":"wilco_session_stopped","code"?}`，表示会话的 Pi 进程已结束，是流的最后一条记录；`{"type":"wilco_records_dropped","count"}`，代替无法读取或不是 JSON 对象的 Pi 输出（这类输出不会被转发）；`{"type":"wilco_dialog_closed","id"}`，表示某个询问（`extension_ui_request` 对话框：`select`、`confirm`、`input`、`editor`）因某台设备作答或超过 `timeout` 而不再等待。
 - **等待中的询问。**Host 会保留 Pi 提出的每个对话框，直到它被回答、过期或会话停止。每个询问只接受一个回答，可以来自会话通道或 `dialog.answer`；之后的回答得到 `unknown_dialog`。当 `session.opened` 为 `resync` 时，仍在等待的询问会以 `seq` 0 再次发送，让错过它们（或重新连接）的设备仍能作答；设备对同一 `id` 只保留一个询问。有询问在等待的会话不会因空闲而被关闭。
