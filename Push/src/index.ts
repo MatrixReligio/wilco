@@ -116,8 +116,10 @@ async function credential(request: Request, env: Env, deps: Dependencies, entry:
   if (!env.DEVICECHECK_PRIVATE_KEY || !env.DEVICECHECK_KEY_ID || !env.APNS_TEAM_ID || !env.CREDENTIAL_SECRET) {
     return json(503, { error: 'credentials are not offered' });
   }
-  if (!(await env.PUSH_LIMIT.limit({ key: await sha256Hex(token.toLowerCase()) })).success) {
-    return json(429, { error: 'too many requests for this device' });
+  // Apart from the token's pushes, so asking for credentials cannot use them up; and per
+  // DeviceCheck token, so one cannot be used for many credentials.
+  for (const key of [`credential:${await sha256Hex(token.toLowerCase())}`, `devicecheck:${await sha256Hex(deviceCheck)}`]) {
+    if (!(await env.PUSH_LIMIT.limit({ key })).success) return json(429, { error: 'too many requests for this device' });
   }
   const checked = await checkDevice(env, environment, deviceCheck, deps.now(), deps.fetch);
   if (checked === 'invalid') return json(403, { error: 'DeviceCheck did not confirm the device' });

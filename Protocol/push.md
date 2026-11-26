@@ -67,7 +67,9 @@ A push credential shows that a token belongs to the Wilco app on a real Apple de
 
 `POST /v1/credential` with `{token, environment, deviceCheck}` (`deviceCheck` base64). The service asks Apple to validate the DeviceCheck token (`api.devicecheck.apple.com`, or `api.development.devicecheck.apple.com` for `sandbox`) and answers `200 {credential}`: base64url, 43 characters, an HMAC-SHA256 of the token and environment under the service's secret, so the service keeps nothing to check one. `403`: Apple did not confirm the device; `502`: Apple could not be asked; `503`: the service offers no credentials; `400`, `413`, `429` as for pushes.
 
-A push with a `credential` that is not the token's is refused (`403`). A push without one is delivered until the service sets `REQUIRE_CREDENTIAL`, and refused (`403`) after that. A Host that holds no credential for a token (an older app, or the request failed) asks again when the device next registers.
+A push with a `credential` that is not the token's is refused (`403`). A push without one is delivered until the service sets `REQUIRE_CREDENTIAL`, and refused (`403`) after that. A Host that holds no credential for a token (an older app, or the request failed) asks again when the device next registers. Credential requests are limited to 30 a minute per push token and per DeviceCheck token, apart from the token's pushes.
+
+A credential shows that a real device running the app asked for it, not that the push token is that device's own: DeviceCheck does not tie its token to anything else. Someone with such a device and another person's push token could get a credential for it. Push tokens are known only to the device and the Macs it paired with, and every notification is sealed to the device, so what that allows is extra pushes, within the limits.
 
 ## On the device
 

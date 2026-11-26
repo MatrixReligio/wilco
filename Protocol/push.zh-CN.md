@@ -67,7 +67,9 @@ APNs 收到 `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-
 
 `POST /v1/credential`，正文为 `{token, environment, deviceCheck}`（`deviceCheck` 为 base64）。服务请 Apple 验证 DeviceCheck 令牌（`api.devicecheck.apple.com`；`sandbox` 用 `api.development.devicecheck.apple.com`），然后回复 `200 {credential}`：43 个字符的 base64url，是用服务密钥对令牌和环境计算的 HMAC-SHA256，因此服务无需保存任何东西就能校验。`403`：Apple 没有确认该设备；`502`：无法询问 Apple；`503`：服务不提供凭证；`400`、`413`、`429` 与推送相同。
 
-带有 `credential` 但不属于该令牌的推送会被拒绝（`403`）。不带凭证的推送在服务设置 `REQUIRE_CREDENTIAL` 之前照常投递，之后会被拒绝（`403`）。Host 没有某个令牌的凭证时（旧版 App，或申请失败），会在设备下次登记时再申请。
+带有 `credential` 但不属于该令牌的推送会被拒绝（`403`）。不带凭证的推送在服务设置 `REQUIRE_CREDENTIAL` 之前照常投递，之后会被拒绝（`403`）。Host 没有某个令牌的凭证时（旧版 App，或申请失败），会在设备下次登记时再申请。申请凭证按每个推送令牌、每个 DeviceCheck 令牌各限每分钟 30 次，与该令牌的推送额度分开计算。
+
+凭证证明的是“运行这个 App 的真实设备申请了它”，而不是“这个推送令牌属于这台设备”：DeviceCheck 令牌不与任何其他信息绑定。拥有这样一台设备、又拿到别人推送令牌的人，可以为那个令牌申请到凭证。推送令牌只有设备本身和与它配对的 Mac 知道，而且每条通知都只为该设备加密，所以这最多带来限额以内的额外推送。
 
 ## 设备端
 

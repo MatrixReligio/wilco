@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { handle, type PushLog } from '../src/index';
-import { alert, activity, fakeEnv, token } from './helpers';
+import { alert, activity, fakeEnv, FakeLimiter, token } from './helpers';
 
 type Call = { url: string; init: RequestInit };
 
@@ -52,6 +52,25 @@ describe('credentials', () => {
     expect(down.status).toBe(502);
     const bad = await handle(request('/v1/credential', { token, environment: 'production', deviceCheck: '!' }), env, { fetch: apple(200).fetcher, now: () => 1 });
     expect(bad.status).toBe(400);
+  });
+
+  it('are limited per DeviceCheck token, apart from the token\'s pushes', async () => {
+    const limiter = new FakeLimiter();
+    const env = await fakeEnv({ push: limiter });
+    await credentialFor(env);
+    await handle(request('/v1/push', alert()), env, { fetch: apple(200).fetcher, now: () => 1 });
+    const [tokenKey, deviceCheckKey, pushKey] = limiter.keys;
+    expect(tokenKey).toMatch(/^credential:[0-9a-f]{64}$/);
+    expect(deviceCheckKey).toMatch(/^devicecheck:[0-9a-f]{64}$/);
+    expect(pushKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(tokenKey.slice('credential:'.length)).toBe(pushKey);
+    expect(JSON.stringify(limiter.keys)).not.toContain(deviceCheck);
+
+    const refusing = await fakeEnv({ push: new FakeLimiter(false) });
+    const { calls, fetcher } = apple(200);
+    const limited = await handle(request('/v1/credential', { token, environment: 'production', deviceCheck }), refusing, { fetch: fetcher, now: () => 1 });
+    expect(limited.status).toBe(429);
+    expect(calls).toHaveLength(0);
   });
 
   it('are not issued without the DeviceCheck key', async () => {

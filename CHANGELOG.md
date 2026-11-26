@@ -6,6 +6,10 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-27
+
+Wilco Host 1.0.1 for the Mac and Wilco 1.0.1 for iPhone and iPad.
+
 ### Added
 - `Protocol/push.md`: push credentials. `POST /v1/credential` gives a Host a credential for a device's push token once Apple DeviceCheck confirms the device; pushes carry it in `credential`, and a service with `REQUIRE_CREDENTIAL` refuses pushes without one. `Protocol/control.md`: `push.register` and `activity.register` take an optional `deviceCheck`.
 
