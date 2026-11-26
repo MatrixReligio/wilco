@@ -40,6 +40,7 @@
 | `session.release` | 设备 → Host | `sessionID` |
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
+| `host.update.check` | 设备 → Host | 无；Wilco Host 立即查找自身的更新，并在没有会话运行时安装。回复 `ok` 或 `update_unavailable` |
 | `relay` | Host → 设备 | `url`、`channel`、`token`：如何通过[中继](relay.zh-CN.md)连接这台 Host；Host 使用中继时在 `hello.ok` 之后发送，变化时再次发送。设备保留最新的一份。 |
 | `guard.policy.get` | 设备 → Host | 无 |
 | `guard.policy.set` | 设备 → Host | `policy`：`{dangerousCommands, outsideWorkspace, allBash}`（布尔值；缺少的规则保持默认值：`true`、`true`、`false`） |
@@ -56,7 +57,7 @@
 
 `activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。会话在 Mac 终端里的 Pi 中打开时（[wilco-bridge](bridge.zh-CN.md)），`writer` 为 `"tui"`；由 Host 自己的 Pi 运行时不带这个字段。此时 `terminalCommands` 列出终端能执行的命令，设备不提供其他命令。
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）、`fork`（`session.fork`、`session.tree`）、`stats`（`stats.get`）、`export`（`session.export`）、`worktree`（带 `worktree` 的 `session.open`）；`files` 包括 `files.list` 和 `files.read`。Host 发送通知时会提供 `push`。
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）、`fork`（`session.fork`、`session.tree`）、`stats`（`stats.get`）、`export`（`session.export`）、`worktree`（带 `worktree` 的 `session.open`）、`host.update`（`host.update.check`）；`files` 包括 `files.list` 和 `files.read`。Host 发送通知时会提供 `push`。
 
 通知（[push.zh-CN.md](push.zh-CN.md)）遵循以下规则。设备只会收到它登记的 `events`，并且不会收到它正在某个在线连接上打开的会话的通知。询问开始等待时发送 `approval`；用时至少 10 秒、或中途等待过回答的运行结束时发送 `finished`；运行以错误结束时发送 `failed`。被中止的运行不发送通知。推送服务报告失效的令牌会被删除，被撤销设备的登记也会被删除。
 
@@ -83,6 +84,7 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `not_found` | 文件或文件夹不存在。 |
 | `too_large` | 文件或页面超过 Host 发送的上限。 |
 | `not_a_repository` | 在不是 git 仓库的文件夹中请求了 `worktree`。 |
+| `update_unavailable` | Mac 上的 Wilco Host 应用没有运行，无法查找更新（Host 在后台运行时不含该应用）。 |
 | `worktree_failed` | git 无法为会话添加 worktree（例如仓库还没有任何提交）。不会启动会话。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |

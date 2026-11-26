@@ -40,6 +40,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.release` | device → Host | `sessionID` |
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
+| `host.update.check` | device → Host | none; Wilco Host looks for an update of itself now and installs it when no session is running. Answered `ok`, or `update_unavailable` |
 | `relay` | Host → device | `url`, `channel`, `token`: how to reach this Host through the [relay](relay.md); sent after `hello.ok` while the Host uses a relay, and again when that changes. A device keeps the latest one. |
 | `guard.policy.get` | device → Host | none |
 | `guard.policy.set` | device → Host | `policy`: `{dangerousCommands, outsideWorkspace, allBash}` (booleans; a missing rule keeps its default: `true`, `true`, `false`) |
@@ -56,7 +57,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 
 `activity` is `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now. `writer` is `"tui"` while the session is open in Pi in the Mac's terminal ([wilco-bridge](bridge.md)); it is absent when the Host's own Pi runs the session. `terminalCommands` then lists the commands the terminal runs; a device does not offer the others.
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below), `fork` (`session.fork`, `session.tree`), `stats` (`stats.get`), `export` (`session.export`), `worktree` (`session.open` with `worktree`); `files` covers `files.list` and `files.read`. A Host offers `push` when it sends notifications.
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below), `fork` (`session.fork`, `session.tree`), `stats` (`stats.get`), `export` (`session.export`), `worktree` (`session.open` with `worktree`), `host.update` (`host.update.check`); `files` covers `files.list` and `files.read`. A Host offers `push` when it sends notifications.
 
 Notifications ([push.md](push.md)) follow these rules. A device hears only about the `events` it registered, and nothing about a session it has open on a live connection. `approval` is sent when a question starts waiting; `finished` when a run that took at least 10 seconds, or waited for an answer, ends; `failed` when a run ends with an error. Aborted runs are not announced. A token the push service reports dead is forgotten, and a revoked device's registration is dropped.
 
@@ -83,6 +84,7 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `not_found` | No such file or folder. |
 | `too_large` | The file or page is larger than the Host sends. |
 | `not_a_repository` | `worktree` was asked for in a folder that is not a git repository. |
+| `update_unavailable` | Wilco Host's app is not running on the Mac to look for an update (the Host runs in the background without it). |
 | `worktree_failed` | Git could not add the session's worktree (for example, the repository has no commit yet). No session is started. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |
