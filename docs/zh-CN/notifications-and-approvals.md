@@ -6,6 +6,8 @@
 
 Wilco Host 启动的每个会话都运行在 [wilco-guard](../../Bridge/README.zh-CN.md#wilco-guard) 之下。在 Pi 执行有风险的命令（`rm -r`、`sudo`、`git push --force` 等）或在文件夹之外写入之前，它会停下来询问你。问题会出现在你 iPhone 或 iPad 上的会话里，Pi 会一直等待（没有时间限制），直到你批准或拒绝。
 
+wilco-guard 是防止失误的安全网，而不是沙盒：Pi 以你的身份运行，专门为绕过规则而写的命令（例如借助脚本文件）是可以绕过的。需要时请打开“所有命令”，Pi 执行每条命令前都会询问。
+
 询问哪些操作，在 App 的“设置 → 你的 Mac → 需要批准”中选择。规则保存在 Mac 上，并立即作用于正在运行的会话；参见 [wilco-guard 与 Wilco Host](../../Bridge/README.zh-CN.md)。
 
 ## 通知

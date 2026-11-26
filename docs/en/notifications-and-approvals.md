@@ -6,6 +6,8 @@
 
 Every session Wilco Host starts runs with [wilco-guard](../../Bridge/README.md#wilco-guard). Before Pi runs a risky command (`rm -r`, `sudo`, `git push --force` and the like) or writes outside its folder, it stops and asks you. The question shows up in the session on your iPhone or iPad, and Pi waits, with no time limit, until you approve or deny it.
 
+wilco-guard is a safety net against mistakes, not a sandbox: Pi runs as you, so a command written to get past the rules (through a script file, say) can. When that matters, turn on Every command, which asks before each command Pi runs.
+
 You choose what is asked about in the app, in Settings → your Mac → Ask for Approval. The rules are kept on the Mac and apply to its running sessions at once; see [wilco-guard with Wilco Host](../../Bridge/README.md#with-wilco-host).
 
 ## Notifications

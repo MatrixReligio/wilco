@@ -29,7 +29,7 @@ Notification content is encrypted for your device before it leaves your Mac and 
 
 Authorizing a workspace controls where the phone can start or resume sessions, which files it can browse, and which sessions it can list. Paths are normalized, and symbolic links that point outside a workspace are rejected.
 
-**Pi's own tools** (read, write, edit, bash) keep Pi's normal trust model, the same as when you use Pi on your Mac directly. Wilco does not sandbox Pi. To add guardrails, enable the `wilco-guard` approval policies; by default they ask before dangerous shell commands and before writes outside the workspace.
+**Pi's own tools** (read, write, edit, bash) keep Pi's normal trust model, the same as when you use Pi on your Mac directly. Wilco does not sandbox Pi. To add guardrails, enable the `wilco-guard` approval policies; by default they ask before dangerous shell commands and before writes outside the workspace. They catch mistakes; they are not a sandbox, since Pi runs as you and a command written to get past them can.
 
 ## Commands the phone may send
 
