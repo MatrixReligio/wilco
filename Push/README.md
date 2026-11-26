@@ -30,7 +30,16 @@ Notifications reach an app only through its own APNs topic and key, so a push se
    printf %s "$BUNDLE"  | npx wrangler secret put APNS_TOPIC   # your app's bundle identifier
    ```
 
-3. `npm run deploy`, then point Wilco Host at the Worker's URL.
+3. Optionally, push credentials (see [Protocol/push.md](../Protocol/push.md#push-credentials)): make a DeviceCheck key and set
+
+   ```sh
+   npx wrangler secret put DEVICECHECK_PRIVATE_KEY < AuthKey_YYYYYYYYYY.p8
+   printf %s "$DEVICECHECK_KEY_ID" | npx wrangler secret put DEVICECHECK_KEY_ID
+   openssl rand -base64 32 | npx wrangler secret put CREDENTIAL_SECRET
+   ```
+
+   Once every device you serve sends one, `printf true | npx wrangler secret put REQUIRE_CREDENTIAL` refuses pushes without a credential.
+4. `npm run deploy`, then point Wilco Host at the Worker's URL.
 
 ## Why the App Store app uses Wilco's push service
 

@@ -14,6 +14,7 @@ export interface AlertPush {
   sealed: string;
   thread: string;
   collapse?: string;
+  credential?: string;
 }
 
 export interface ActivityState {
@@ -34,6 +35,7 @@ export interface ActivityPush {
   staleAfter?: number;
   /** For `end`: seconds until the system removes the activity (0: at once). */
   dismissAfter?: number;
+  credential?: string;
 }
 
 export type Push = AlertPush | ActivityPush;
@@ -76,6 +78,40 @@ function decodedLength(base64: string): number {
   return (base64.length / 4) * 3 - padding;
 }
 
+/** A Host asking for a credential for one of its device's tokens. */
+export interface CredentialRequest {
+  token: string;
+  environment: Environment;
+  /** Base64: what DCDevice made on the device. */
+  deviceCheck: string;
+}
+
+export type ParsedCredentialRequest = { ok: true; request: CredentialRequest } | { ok: false; error: string };
+
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const CREDENTIAL = /^[A-Za-z0-9_-]{43}$/;
+
+export function parseCredentialRequest(body: unknown): ParsedCredentialRequest {
+  try {
+    const o = object(body, 'the request');
+    const request: CredentialRequest = {
+      token: tokenOf(o),
+      environment: oneOf(o.environment, 'environment', ['sandbox', 'production'] as const),
+      deviceCheck: text(o.deviceCheck, 'deviceCheck', BASE64, 6000),
+    };
+    return { ok: true, request };
+  } catch (error) {
+    if (error instanceof Invalid) return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
+function tokenOf(o: Record<string, unknown>): string {
+  const token = text(o.token, 'token', /^[0-9a-fA-F]+$/, 200);
+  if (token.length < 64) fail('token is not valid');
+  return token;
+}
+
 export function parsePush(body: unknown): Parsed {
   try {
     return { ok: true, push: parse(body) };
@@ -87,10 +123,10 @@ export function parsePush(body: unknown): Parsed {
 
 function parse(body: unknown): Push {
   const o = object(body, 'the request');
-  const token = text(o.token, 'token', /^[0-9a-fA-F]+$/, 200);
-  if (token.length < 64) fail('token is not valid');
+  const token = tokenOf(o);
   const environment = oneOf(o.environment, 'environment', ['sandbox', 'production'] as const);
   const kind = oneOf(o.kind, 'kind', ['alert', 'activity'] as const);
+  const credential = o.credential === undefined ? undefined : text(o.credential, 'credential', CREDENTIAL, 43);
   if (kind === 'alert') {
     const category = oneOf(o.category, 'category', ['approval', 'finished', 'failed'] as const);
     const sealed = text(o.sealed, 'sealed', /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/, 4 * Math.ceil(MAX_SEALED_BYTES / 3));
@@ -98,6 +134,7 @@ function parse(body: unknown): Push {
     const thread = text(o.thread, 'thread', /^[A-Za-z0-9_-]+$/, 64);
     const push: AlertPush = { kind, token, environment, category, sealed, thread };
     if (o.collapse !== undefined) push.collapse = text(o.collapse, 'collapse', /^[\x21-\x7e]+$/, 64);
+    if (credential) push.credential = credential;
     return push;
   }
   const event = oneOf(o.event, 'event', ['update', 'end'] as const);
@@ -118,5 +155,6 @@ function parse(body: unknown): Push {
     if (event !== 'end') fail('dismissAfter is only for end');
     push.dismissAfter = integer(o.dismissAfter, 'dismissAfter', 0, MAX_DISMISS_AFTER);
   }
+  if (credential) push.credential = credential;
   return push;
 }

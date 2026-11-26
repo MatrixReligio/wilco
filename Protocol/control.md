@@ -48,9 +48,9 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `session.activity` | Host → device | `sessionID`, `workspaceID`, `activity`: sent, without `id`, for every live session right after `hello.ok`, when a session opens in the Mac's terminal, and whenever its activity changes. A session that stopped gets a last one with state `idle`. |
 | `dialog.answer` | device → Host | `sessionID`, `response`: a Pi `extension_ui_response` object. Answers a waiting question whether or not the session is open on this connection. |
 | `dialog.answered` | Host → device | `sessionID`, `dialogID`: reply to `dialog.answer`. |
-| `push.register` | device → Host | `token` (APNs, 64–200 hex digits), `environment` (`sandbox` or `production`), `key` (base64 of the device's 32-byte Curve25519 public key that notifications are sealed to), `events` (any of `approval`, `finished`, `failed`). Replaces the device's earlier registration; a device sends it on every connection. Reply: `ok`. |
+| `push.register` | device → Host | `token` (APNs, 64–200 hex digits), `environment` (`sandbox` or `production`), `key` (base64 of the device's 32-byte Curve25519 public key that notifications are sealed to), `events` (any of `approval`, `finished`, `failed`), `deviceCheck` (optional: base64 of an Apple DeviceCheck token, at most 4096 bytes, with which the Host gets the token a [push credential](push.md#push-credentials); the Host does not keep it). Replaces the device's earlier registration; a device sends it on every connection. Reply: `ok`. |
 | `push.unregister` | device → Host | The device gets no more notifications. Reply: `ok`. |
-| `activity.register` | device → Host | `sessionID`, `token` (the Live Activity's push token): the Host keeps this Live Activity current while the session runs, and ends it when a run ends. Needs `push.register` first. Reply: `ok`. |
+| `activity.register` | device → Host | `sessionID`, `token` (the Live Activity's push token), `deviceCheck` (optional, as for `push.register`): the Host keeps this Live Activity current while the session runs, and ends it when a run ends. Needs `push.register` first. Reply: `ok`. |
 | `activity.end` | device → Host | `sessionID`: the device ended its Live Activity. Reply: `ok`. |
 | `ok` | Host → device | The request was done. |
 | `error` | either | `code`, `message`, `requestType?` |

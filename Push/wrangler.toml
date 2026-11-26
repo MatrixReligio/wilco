@@ -3,7 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-11-01"
 
 # Secrets (wrangler secret put): APNS_PRIVATE_KEY (the .p8 key), APNS_KEY_ID, APNS_TEAM_ID,
-# APNS_TOPIC (the app's bundle identifier).
+# APNS_TOPIC (the app's bundle identifier). Push credentials, optional: DEVICECHECK_PRIVATE_KEY (a
+# DeviceCheck .p8 key), DEVICECHECK_KEY_ID, CREDENTIAL_SECRET (random), and REQUIRE_CREDENTIAL ("true").
 
 # 30 pushes a minute per device token, 300 per minute per sender address.
 [[ratelimits]]

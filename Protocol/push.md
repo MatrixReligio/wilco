@@ -41,6 +41,7 @@ An alert:
 | `sealed` | the sealed message, base64 |
 | `thread` | base64url, at most 64 characters: groups a session's notifications |
 | `collapse` | optional, at most 64 characters: a newer notification with the same value replaces the older one |
+| `credential` | optional: the token's push credential (below) |
 
 APNs receives `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_UNOPENED","thread-id":…},"w":<sealed>}`, push type `alert`. The device's notification service extension opens `w`, writes the notification and sets its real category (with its buttons); the localized fallback, without buttons, is shown only if it cannot. A `finished` notification has no sound and priority 5; the others have priority 10.
 
@@ -54,10 +55,19 @@ A Live Activity update:
 | `state` | `{status, steps, startedAt, needsApproval, dialog?}`: `status` is `"working"`, `"needsYou"`, `"idle"` or `"failed"`; `steps` 0–100000; `startedAt` whole seconds since 2001-01-01 UTC (how ActivityKit reads dates); `dialog` is the waiting question's `id` (at most 64 characters), never its text |
 | `staleAfter` | optional seconds (1–28800) after which the system shows the activity as out of date |
 | `dismissAfter` | optional, only with `end`: seconds (0–14400) until the system removes the ended activity; 0 removes it at once |
+| `credential` | optional: the token's push credential (below) |
 
 APNs receives `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…,"dismissal-date"?:…}}`, push type `liveactivity`, priority 10 while `needsApproval`, otherwise 5. The activity's content is not sealed, so it carries no text from the session: counts, times, and the question's id.
 
 `needsApproval` is true only while the waiting question is a yes-or-no one (`method` `"confirm"`), and `dialog` is then its `id`. For any other question both are left out: the activity can only open the app.
+
+## Push credentials
+
+A push credential shows that a token belongs to the Wilco app on a real Apple device. The device sends its Host an Apple DeviceCheck token (`DCDevice`) with `push.register` and `activity.register` ([control.md](control.md)); the Host asks the push service for a credential for that push token and sends it with every push to the token.
+
+`POST /v1/credential` with `{token, environment, deviceCheck}` (`deviceCheck` base64). The service asks Apple to validate the DeviceCheck token (`api.devicecheck.apple.com`, or `api.development.devicecheck.apple.com` for `sandbox`) and answers `200 {credential}`: base64url, 43 characters, an HMAC-SHA256 of the token and environment under the service's secret, so the service keeps nothing to check one. `403`: Apple did not confirm the device; `502`: Apple could not be asked; `503`: the service offers no credentials; `400`, `413`, `429` as for pushes.
+
+A push with a `credential` that is not the token's is refused (`403`). A push without one is delivered until the service sets `REQUIRE_CREDENTIAL`, and refused (`403`) after that. A Host that holds no credential for a token (an older app, or the request failed) asks again when the device next registers.
 
 ## On the device
 
@@ -74,9 +84,10 @@ Replies:
 | `202` | APNs accepted it |
 | `400` | the request is not valid: `{error}` |
 | `410` | the token will never work again (`Unregistered`, `BadDeviceToken`, `DeviceTokenNotForTopic`): `{reason}`. The Host forgets it. |
+| `403` | the credential is not the token's, or one is required: `{error}` |
 | `413` | the body is larger than 8 KB |
 | `429` | too many pushes: 30 a minute per token, 300 a minute per sender address |
 | `502` | APNs refused or could not be reached: try later |
 | `503` | the service is not configured |
 
-The service keeps nothing. It rate-limits by a SHA-256 of the token, never the token itself. Its live log line for each push holds only the HTTP status, `kind`, `environment` and APNs's `reason`.
+The service keeps nothing. It rate-limits by a SHA-256 of the token, never the token itself. Its live log line for each push holds only the HTTP status, `kind`, `environment`, APNs's `reason`, and whether the push had a valid credential (`valid`, `invalid` or `none`), never the credential itself.

@@ -41,6 +41,7 @@ Wilco Host 通过通知告诉设备有询问在等待回答，或者某次运行
 | `sealed` | 封装后的消息，base64 |
 | `thread` | base64url，最多 64 个字符：把同一会话的通知归为一组 |
 | `collapse` | 可选，最多 64 个字符：取值相同的新通知会替换旧通知 |
+| `credential` | 可选：该令牌的推送凭证（见下文） |
 
 APNs 收到 `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-content":1,"sound":"default","category":"WILCO_UNOPENED","thread-id":…},"w":<sealed>}`，推送类型 `alert`。设备上的通知服务扩展打开 `w`，写出通知内容并设置真正的类别（及其按钮）；只有打不开时才显示本地化的备用文字，且没有按钮。`finished` 通知没有声音，优先级为 5；其他为 10。
 
@@ -54,10 +55,19 @@ APNs 收到 `{"aps":{"alert":{"loc-key":"PUSH_FALLBACK_<CATEGORY>"},"mutable-con
 | `state` | `{status, steps, startedAt, needsApproval, dialog?}`：`status` 为 `"working"`、`"needsYou"`、`"idle"` 或 `"failed"`；`steps` 为 0–100000；`startedAt` 为自 2001-01-01 UTC 起的整秒数（ActivityKit 读取日期的方式）；`dialog` 是正在等待的询问的 `id`（最多 64 个字符），而不是它的文字 |
 | `staleAfter` | 可选，秒数（1–28800），超过后系统把该活动显示为已过时 |
 | `dismissAfter` | 可选，仅用于 `end`：秒数（0–14400），之后系统移除已结束的活动；0 表示立即移除 |
+| `credential` | 可选：该令牌的推送凭证（见下文） |
 
 APNs 收到 `{"aps":{"timestamp":…,"event":…,"content-state":<state>,"stale-date"?:…,"dismissal-date"?:…}}`，推送类型 `liveactivity`；`needsApproval` 为真时优先级 10，否则为 5。实时活动的内容没有加密，因此不包含会话中的任何文字：只有计数、时间和询问的 id。
 
 只有当正在等待的询问是“是或否”类型（`method` 为 `"confirm"`）时，`needsApproval` 才为真，此时 `dialog` 是它的 `id`。其他询问两者都不带：实时活动只能打开 App。
+
+## 推送凭证
+
+推送凭证证明一个令牌属于运行在真实 Apple 设备上的 Wilco App。设备在 `push.register` 和 `activity.register`（[control.zh-CN.md](control.zh-CN.md)）中附上 Apple DeviceCheck 令牌（`DCDevice`）；Host 用它向推送服务为这个推送令牌申请凭证，之后发往该令牌的每条推送都带上凭证。
+
+`POST /v1/credential`，正文为 `{token, environment, deviceCheck}`（`deviceCheck` 为 base64）。服务请 Apple 验证 DeviceCheck 令牌（`api.devicecheck.apple.com`；`sandbox` 用 `api.development.devicecheck.apple.com`），然后回复 `200 {credential}`：43 个字符的 base64url，是用服务密钥对令牌和环境计算的 HMAC-SHA256，因此服务无需保存任何东西就能校验。`403`：Apple 没有确认该设备；`502`：无法询问 Apple；`503`：服务不提供凭证；`400`、`413`、`429` 与推送相同。
+
+带有 `credential` 但不属于该令牌的推送会被拒绝（`403`）。不带凭证的推送在服务设置 `REQUIRE_CREDENTIAL` 之前照常投递，之后会被拒绝（`403`）。Host 没有某个令牌的凭证时（旧版 App，或申请失败），会在设备下次登记时再申请。
 
 ## 设备端
 
@@ -74,9 +84,10 @@ Wilco App 遵循以下规则，其他客户端也应如此。
 | `202` | APNs 已接受 |
 | `400` | 请求无效：`{error}` |
 | `410` | 令牌永久失效（`Unregistered`、`BadDeviceToken`、`DeviceTokenNotForTopic`）：`{reason}`。Host 随即删除该令牌。 |
+| `403` | 凭证不属于该令牌，或要求凭证而未提供：`{error}` |
 | `413` | 正文超过 8 KB |
 | `429` | 推送过多：每个令牌每分钟 30 条，每个发送地址每分钟 300 条 |
 | `502` | APNs 拒绝或无法连接：稍后重试 |
 | `503` | 服务尚未配置 |
 
-服务不保存任何内容。限流使用令牌的 SHA-256，而不是令牌本身。每次推送的实时日志只有 HTTP 状态、`kind`、`environment` 和 APNs 的 `reason`。
+服务不保存任何内容。限流使用令牌的 SHA-256，而不是令牌本身。每次推送的实时日志只有 HTTP 状态、`kind`、`environment`、APNs 的 `reason`，以及推送是否带有有效凭证（`valid`、`invalid` 或 `none`），从不包含凭证本身。

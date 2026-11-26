@@ -63,8 +63,8 @@ describe('worker', () => {
     await handle(post(alert(), '198.51.100.7'), env, { fetch: apns(410, { reason: 'Unregistered' }).fetcher, now: () => 1, log });
     await handle(post({ token }, '198.51.100.7'), env, { fetch: apns(200).fetcher, now: () => 1, log });
     expect(lines).toEqual([
-      { event: 'push', status: 202, kind: 'alert', environment: 'production' },
-      { event: 'push', status: 410, kind: 'alert', environment: 'production', reason: 'Unregistered' },
+      { event: 'push', status: 202, kind: 'alert', environment: 'production', credential: 'none' },
+      { event: 'push', status: 410, kind: 'alert', environment: 'production', reason: 'Unregistered', credential: 'none' },
       { event: 'push', status: 400 },
     ]);
     const text = JSON.stringify(lines);
@@ -107,7 +107,7 @@ describe('worker', () => {
     expect(calls).toHaveLength(0);
   }, 3000);
 
-  it('serves only POST /v1/push and a health check', async () => {
+  it('serves only POST /v1/push, POST /v1/credential and a health check', async () => {
     expect((await SELF.fetch('https://push.test/v1/push')).status).toBe(404);
     expect((await SELF.fetch('https://push.test/elsewhere', { method: 'POST' })).status).toBe(404);
     expect((await SELF.fetch('https://push.test/health')).status).toBe(200);

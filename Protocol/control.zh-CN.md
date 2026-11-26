@@ -48,9 +48,9 @@
 | `session.activity` | Host → 设备 | `sessionID`、`workspaceID`、`activity`：不带 `id`；`hello.ok` 之后立即为每个运行中的会话发送一次；会话在 Mac 终端中打开时，以及之后活动每次变化时，也都会发送。会话停止时最后发送一次，状态为 `idle`。 |
 | `dialog.answer` | 设备 → Host | `sessionID`、`response`：一个 Pi `extension_ui_response` 对象。无论本连接是否打开了该会话，都可以回答正在等待的询问。 |
 | `dialog.answered` | Host → 设备 | `sessionID`、`dialogID`：对 `dialog.answer` 的回复。 |
-| `push.register` | 设备 → Host | `token`（APNs 令牌，64–200 位十六进制数字）、`environment`（`sandbox` 或 `production`）、`key`（设备用于接收加密通知的 32 字节 Curve25519 公钥，base64）、`events`（`approval`、`finished`、`failed` 的任意组合）。替换设备之前的登记；设备每次连接都会发送。回复：`ok`。 |
+| `push.register` | 设备 → Host | `token`（APNs 令牌，64–200 位十六进制数字）、`environment`（`sandbox` 或 `production`）、`key`（设备用于接收加密通知的 32 字节 Curve25519 公钥，base64）、`events`（`approval`、`finished`、`failed` 的任意组合）、`deviceCheck`（可选：Apple DeviceCheck 令牌的 base64，最多 4096 字节；Host 用它为该令牌申请[推送凭证](push.zh-CN.md#推送凭证)，不会保存它）。替换设备之前的登记；设备每次连接都会发送。回复：`ok`。 |
 | `push.unregister` | 设备 → Host | 设备不再接收通知。回复：`ok`。 |
-| `activity.register` | 设备 → Host | `sessionID`、`token`（实时活动的推送令牌）：会话运行期间 Host 让这个实时活动保持最新，并在一次运行结束时结束它。需要先 `push.register`。回复：`ok`。 |
+| `activity.register` | 设备 → Host | `sessionID`、`token`（实时活动的推送令牌）、`deviceCheck`（可选，同 `push.register`）：会话运行期间 Host 让这个实时活动保持最新，并在一次运行结束时结束它。需要先 `push.register`。回复：`ok`。 |
 | `activity.end` | 设备 → Host | `sessionID`：设备已结束它的实时活动。回复：`ok`。 |
 | `ok` | Host → 设备 | 请求已完成。 |
 | `error` | 双向 | `code`、`message`、`requestType?` |

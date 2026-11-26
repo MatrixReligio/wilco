@@ -37,5 +37,6 @@ export async function fakeEnv(options: { push?: FakeLimiter; ip?: FakeLimiter } 
   return {
     APNS_PRIVATE_KEY: key.pem, APNS_KEY_ID: 'ABC123DEFG', APNS_TEAM_ID: 'TEAM123456', APNS_TOPIC: 'com.example.wilco',
     PUSH_LIMIT: options.push ?? new FakeLimiter(), IP_LIMIT: options.ip ?? new FakeLimiter(), publicKey: key.publicKey,
+    DEVICECHECK_PRIVATE_KEY: key.pem, DEVICECHECK_KEY_ID: 'DCKEY00000', CREDENTIAL_SECRET: 'test-secret-'.repeat(4),
   };
 }

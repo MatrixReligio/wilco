@@ -30,7 +30,16 @@ npm run typecheck
    printf %s "$BUNDLE"  | npx wrangler secret put APNS_TOPIC   # 你的 App 的 bundle identifier
    ```
 
-3. 运行 `npm run deploy`，然后让 Wilco Host 使用该 Worker 的地址。
+3. 可选：推送凭证（见 [Protocol/push.zh-CN.md](../Protocol/push.zh-CN.md#推送凭证)）。创建一个 DeviceCheck 密钥，然后设置
+
+   ```sh
+   npx wrangler secret put DEVICECHECK_PRIVATE_KEY < AuthKey_YYYYYYYYYY.p8
+   printf %s "$DEVICECHECK_KEY_ID" | npx wrangler secret put DEVICECHECK_KEY_ID
+   openssl rand -base64 32 | npx wrangler secret put CREDENTIAL_SECRET
+   ```
+
+   等你服务的所有设备都会带上凭证后，运行 `printf true | npx wrangler secret put REQUIRE_CREDENTIAL`，没有凭证的推送就会被拒绝。
+4. 运行 `npm run deploy`，然后让 Wilco Host 使用该 Worker 的地址。
 
 ## 为什么 App Store 版本使用 Wilco 的推送服务
 
