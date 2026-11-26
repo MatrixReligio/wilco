@@ -70,6 +70,7 @@ The iOS app and the Mac host are developed in a separate repository and distribu
 - [Protocol overview](docs/en/protocol.md)
 - [Approvals and notifications](docs/en/notifications-and-approvals.md)
 - [Working in a session](docs/en/session-tools.md)
+- [Your Mac's folders from your phone](docs/en/workspace-tools.md)
 - [Terminal sessions on your phone](docs/en/terminal-sessions.md)
 - [Self-hosting the relay](docs/en/self-hosting-relay.md)
 - [FAQ](docs/en/faq.md)
