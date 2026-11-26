@@ -82,7 +82,8 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `invalid_path` | 路径是绝对路径、含有 `..` 或 NUL，或不是文件夹（`files.list`）。 |
 | `not_found` | 文件或文件夹不存在。 |
 | `too_large` | 文件或页面超过 Host 发送的上限。 |
-| `not_a_repository` | 在不是 git 仓库的文件夹中请求了 `worktree`，或 git 无法添加 worktree。 |
+| `not_a_repository` | 在不是 git 仓库的文件夹中请求了 `worktree`。 |
+| `worktree_failed` | git 无法为会话添加 worktree（例如仓库还没有任何提交）。不会启动会话。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |
 | `pi_timeout`、`pi_error` | Pi 未能及时应答，或无法执行该命令。 |

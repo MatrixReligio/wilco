@@ -82,7 +82,8 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `invalid_path` | The path is absolute, contains `..` or NUL, or is not a folder (`files.list`). |
 | `not_found` | No such file or folder. |
 | `too_large` | The file or page is larger than the Host sends. |
-| `not_a_repository` | `worktree` was asked for in a folder that is not a git repository, or git could not add the worktree. |
+| `not_a_repository` | `worktree` was asked for in a folder that is not a git repository. |
+| `worktree_failed` | Git could not add the session's worktree (for example, the repository has no commit yet). No session is started. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |
 | `pi_timeout`, `pi_error` | Pi did not answer in time, or could not run the command. |
