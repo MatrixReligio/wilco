@@ -21,6 +21,17 @@ export interface Dependencies {
   fetch: (url: string, init: RequestInit) => Promise<Response>;
   /** Seconds since 1970. */
   now: () => number;
+  /** Where the one log line per push goes (Workers Logs by default). */
+  log?: (entry: PushLog) => void;
+}
+
+/** What is logged about a push: its outcome, never its token, sender, or content. */
+export interface PushLog {
+  event: 'push';
+  status: number;
+  kind?: string;
+  environment?: string;
+  reason?: string;
 }
 
 const MAX_BODY_BYTES = 8192;
@@ -66,6 +77,14 @@ export async function handle(request: Request, env: Env, deps: Dependencies): Pr
   const url = new URL(request.url);
   if (url.pathname === '/health' && request.method === 'GET') return new Response('ok');
   if (url.pathname !== '/v1/push' || request.method !== 'POST') return new Response('not found', { status: 404 });
+  const entry: PushLog = { event: 'push', status: 0 };
+  const response = await push(request, env, deps, entry);
+  entry.status = response.status;
+  (deps.log ?? ((line) => console.log(JSON.stringify(line))))(entry);
+  return response;
+}
+
+async function push(request: Request, env: Env, deps: Dependencies, entry: PushLog): Promise<Response> {
 
   const address = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   if (!(await env.IP_LIMIT.limit({ key: address })).success) return json(429, { error: 'too many requests' });
@@ -81,6 +100,8 @@ export async function handle(request: Request, env: Env, deps: Dependencies): Pr
   const parsed = parsePush(body);
   if (!parsed.ok) return json(400, { error: parsed.error });
   const push = parsed.push;
+  entry.kind = push.kind;
+  entry.environment = push.environment;
 
   if (!(await env.PUSH_LIMIT.limit({ key: await sha256Hex(push.token.toLowerCase()) })).success) {
     return json(429, { error: 'too many pushes for this device' });
@@ -102,6 +123,7 @@ export async function handle(request: Request, env: Env, deps: Dependencies): Pr
   }
   if (response.ok) return new Response(null, { status: 202 });
   const reason = await response.json().then((b) => (b as { reason?: unknown }).reason, () => undefined);
+  if (typeof reason === 'string') entry.reason = reason;
   if (typeof reason === 'string' && DEAD_TOKEN.has(reason)) return json(410, { reason });
   if (reason === 'ExpiredProviderToken' || reason === 'InvalidProviderToken') forgetProviderToken();
   return json(502, { error: 'APNs refused the push', status: response.status, reason: typeof reason === 'string' ? reason : undefined });

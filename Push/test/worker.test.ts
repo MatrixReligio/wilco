@@ -55,6 +55,22 @@ describe('worker', () => {
     expect((await handle(post(alert()), env, { fetch: down, now: () => 102 })).status).toBe(502);
   });
 
+  it('logs one line per push, without tokens, addresses or content', async () => {
+    const lines: unknown[] = [];
+    const log = (entry: unknown) => lines.push(entry);
+    const env = await fakeEnv();
+    await handle(post(alert(), '198.51.100.7'), env, { fetch: apns(200).fetcher, now: () => 1, log });
+    await handle(post(alert(), '198.51.100.7'), env, { fetch: apns(410, { reason: 'Unregistered' }).fetcher, now: () => 1, log });
+    await handle(post({ token }, '198.51.100.7'), env, { fetch: apns(200).fetcher, now: () => 1, log });
+    expect(lines).toEqual([
+      { event: 'push', status: 202, kind: 'alert', environment: 'production' },
+      { event: 'push', status: 410, kind: 'alert', environment: 'production', reason: 'Unregistered' },
+      { event: 'push', status: 400 },
+    ]);
+    const text = JSON.stringify(lines);
+    for (const secret of [token, '198.51.100.7', alert().sealed as string]) expect(text).not.toContain(secret);
+  });
+
   it('is rate limited per token and per address', async () => {
     const pushLimit = new FakeLimiter(false);
     const limited = await handle(post(alert()), await fakeEnv({ push: pushLimit }), { fetch: apns(200).fetcher, now: () => 1 });

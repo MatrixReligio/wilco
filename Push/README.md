@@ -4,7 +4,7 @@
 
 A Cloudflare Worker that delivers Wilco Host's notifications and Live Activity updates to devices through Apple Push Notification service. Notifications are sealed by the Host to each device and cannot be read here. The protocol is specified in [Protocol/push.md](../Protocol/push.md).
 
-It keeps nothing: each request is checked, rate-limited and passed to APNs, and APNs's answer is passed back (a token that will never work again comes back as `410`, so the Host forgets it).
+It keeps nothing: each request is checked, rate-limited and passed to APNs, and APNs's answer is passed back (a token that will never work again comes back as `410`, so the Host forgets it). Each push writes one line to the Worker's live log (`wrangler tail`): its HTTP status, kind, APNs environment and APNs's reason for a refusal, never the token, the sender's address or the content. The line is not stored.
 
 ## Develop
 

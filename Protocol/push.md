@@ -79,4 +79,4 @@ Replies:
 | `502` | APNs refused or could not be reached: try later |
 | `503` | the service is not configured |
 
-The service keeps nothing. It rate-limits by a SHA-256 of the token, never the token itself.
+The service keeps nothing. It rate-limits by a SHA-256 of the token, never the token itself. Its live log line for each push holds only the HTTP status, `kind`, `environment` and APNs's `reason`.

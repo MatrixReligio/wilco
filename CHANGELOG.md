@@ -7,6 +7,7 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 ## [Unreleased]
 
 ### Changed
+- `Push/`: one live log line per push (status, kind, environment, APNs reason; never the token, address or content), not stored.
 - `docs/*/notifications-and-approvals.md`, `docs/*/security-model.md`: wilco-guard catches mistakes and is not a sandbox.
 - `Protocol/control.md`: deltas of one content block written within 50 ms of each other reach the device as one stream record.
 

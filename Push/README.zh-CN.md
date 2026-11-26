@@ -4,7 +4,7 @@
 
 一个 Cloudflare Worker，通过 Apple 推送通知服务把 Wilco Host 的通知和实时活动更新送到设备上。通知由 Host 为每台设备单独封装加密，这里无法读取。协议见 [Protocol/push.zh-CN.md](../Protocol/push.zh-CN.md)。
 
-它不保存任何内容：每个请求经过校验和限流后转交给 APNs，再把 APNs 的答复原样返回（永久失效的令牌返回 `410`，Host 随即删除它）。
+它不保存任何内容：每个请求经过校验和限流后转交给 APNs，再把 APNs 的答复原样返回（永久失效的令牌返回 `410`，Host 随即删除它）。每次推送会在 Worker 的实时日志（`wrangler tail`）中写一行：HTTP 状态、类型、APNs 环境，以及 APNs 拒绝时给出的原因；从不包含令牌、发送方地址或内容。这行日志不会被保存。
 
 ## 开发
 
