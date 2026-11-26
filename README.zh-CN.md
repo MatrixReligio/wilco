@@ -8,8 +8,19 @@ Wilco 是 [Pi coding agent](https://github.com/earendil-works/pi) 的原生 iPho
 
 > *Wilco* 是无线电用语 "will comply" 的缩写，意思是"收到，照办"。你下指令，agent 去执行。
 
-> [!IMPORTANT]
-> Wilco 还处于早期开发阶段，本仓库中的内容暂时都不能安装使用。欢迎 Watch 本仓库，或查看下面的[路线图](#路线图)了解进展。
+## 获取 Wilco
+
+- **Wilco Host**，装在 Mac 上（macOS 26 或更新版本），免费：[下载](https://github.com/MatrixReligio/wilco-releases/releases/latest)，或用 Homebrew 安装：
+
+  ```sh
+  brew tap matrixreligio/tap
+  brew trust matrixreligio/tap   # Homebrew 7 及以上版本需要
+  brew install --cask wilco-host
+  ```
+
+- **Wilco**，iPhone 和 iPad 应用（iOS / iPadOS 26 或更新版本）：[App Store](https://apps.apple.com/app/id6839542781)。
+
+然后按照[使用手册](docs/zh-CN/user-guide.md)操作。
 
 ## 为什么选择 Wilco
 
@@ -63,8 +74,11 @@ iOS App 和 Mac Host 在另一个仓库中开发，以签名后的二进制形�
 | M4 深度功能 | 会话树与分叉、文件与 diff、用量统计、Pi TUI 的 `wilco-bridge` |
 | M5 正式发布 | iPad 打磨、本地化、无障碍、上架 App Store |
 
+以上内容均已包含在 Wilco 1.0 中。
+
 ## 文档
 
+- **[使用手册](docs/zh-CN/user-guide.md)**：一步步安装、配对和使用 Wilco
 - [架构](docs/zh-CN/architecture.md)
 - [安全模型](docs/zh-CN/security-model.md)
 - [协议概览](docs/zh-CN/protocol.md)

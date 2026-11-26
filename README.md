@@ -8,8 +8,19 @@ Wilco is a native iPhone and iPad client for the [Pi coding agent](https://githu
 
 > *Wilco* is radio shorthand for "will comply": you give the instruction, your agent carries it out.
 
-> [!IMPORTANT]
-> Wilco is in early development. Nothing in this repository is ready to install yet. Watch the repository or read the [roadmap](#roadmap) to follow progress.
+## Get Wilco
+
+- **Wilco Host** for your Mac (macOS 26 or later), free: [download](https://github.com/MatrixReligio/wilco-releases/releases/latest), or with Homebrew:
+
+  ```sh
+  brew tap matrixreligio/tap
+  brew trust matrixreligio/tap   # Homebrew 7 and later
+  brew install --cask wilco-host
+  ```
+
+- **Wilco** for iPhone and iPad (iOS and iPadOS 26 or later): [App Store](https://apps.apple.com/app/id6839542781).
+
+Then follow the [user guide](docs/en/user-guide.md).
 
 ## Why Wilco
 
@@ -63,8 +74,11 @@ The iOS app and the Mac host are developed in a separate repository and distribu
 | M4 Depth | Session tree and forks, files and diffs, usage stats, `wilco-bridge` for the Pi TUI |
 | M5 Launch | iPad polish, localization, accessibility, App Store release |
 
+All of it shipped in Wilco 1.0.
+
 ## Documentation
 
+- **[User guide](docs/en/user-guide.md)**: install, pair and use Wilco, step by step
 - [Architecture](docs/en/architecture.md)
 - [Security model](docs/en/security-model.md)
 - [Protocol overview](docs/en/protocol.md)
