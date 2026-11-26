@@ -6,7 +6,12 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-26
+
+The first release of Wilco, with Wilco Host 1.0.0 for the Mac and Wilco 1.0.0 for iPhone and iPad.
+
 ### Added
+- `docs/*/user-guide.md`: the user guide, from installing Wilco Host to troubleshooting and uninstalling.
 - `Protocol/control.md`: `files.list` and `files.read` (read-only workspace files), `stats.get` (token use and cost by day, workspace and model), `session.export` (a session as HTML), `session.open` with `worktree` (a new session in its own git worktree), `WorkspaceInfo.isGitRepository`, `SessionSummary.worktree`; capabilities `stats`, `export`, `worktree`; errors `outside_workspace`, `invalid_path`, `not_found`, `too_large`, `not_a_repository`, `worktree_failed`.
 - `docs/*/workspace-tools.md`: files, usage, running a command on the Mac, exporting a session, a new session in its own git worktree, and dictation.
 - `Protocol/control.md`: `session.fork` (fork a session before one of its messages, or duplicate it, in a separate Pi) with `requestID` (a repeated request gets the same fork), and the forked text in `session.opened`'s `draft`; `session.tree` (the tree of the person's messages, read by the Host from the session's file); capability `fork`; error `cancelled`. `get_tree` is answered `not_available`.
