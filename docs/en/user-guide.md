@@ -177,7 +177,7 @@ Quitting from the menu bar closes only the window and menu: the background Host 
 ## 13. Privacy and security
 
 - No account, no tracking, no analytics. The app collects no data.
-- Your code, keys and Pi sessions stay on your Mac. The app keeps a cache of what you opened, so you can read it offline.
+- Your code, keys and Pi sessions stay on your Mac. The app loads a session from your Mac when you open it and keeps no copy, so reading one needs a connection to the Mac.
 - Every connection is end-to-end encrypted (Noise protocol) between your device and your Mac. The relay only passes encrypted bytes it cannot read, and stores nothing; you can [run your own](self-hosting-relay.md).
 - Pi can only work in folders you share, and wilco-guard asks before risky commands.
 

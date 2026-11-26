@@ -24,7 +24,7 @@ Wilco app ─┬─ LAN / direct TCP ──────────────�
 
 ## Design principles
 
-1. **Pi is the source of truth.** Pi's JSONL session files are the only durable record of your conversations. The app keeps a disposable cache for offline viewing; the host and relay store no conversation content.
+1. **Pi is the source of truth.** Pi's JSONL session files are the only durable record of your conversations. The app loads sessions from the host as you open them and keeps no copy; the host and relay store no conversation content.
 2. **Thin host, native records.** On a session channel, Wilco carries Pi's official RPC records unchanged inside a small envelope (sequence number, session id). The host adds only what Pi doesn't provide: pairing, workspaces, session listing, files, push, and capability negotiation.
 3. **Forward compatible.** The app decodes the record types it knows and keeps unknown ones as raw JSON, shown with a generic view. A Pi update that adds events doesn't break the app.
 4. **One writer per session.** A session is driven either by a host-owned Pi RPC process or by a Pi TUI running `wilco-bridge`, never both at the same time. The host hands control over when that is safe.
