@@ -21,14 +21,22 @@
 | `hello` | 设备 → Host | `protocolVersion`、`capabilities[]`、`clientVersion?`、`deviceName?` |
 | `hello.ok` | Host → 设备 | `protocolVersion`、`capabilities[]`、`hostVersion?`、`piVersion?` |
 | `workspace.list` | 设备 → Host | 无 |
-| `workspace.list.result` | Host → 设备 | `workspaces[]`：`{id, name, path}`（path 仅用于显示，主目录显示为 `~`） |
+| `workspace.list.result` | Host → 设备 | `workspaces[]`：`{id, name, path, isGitRepository?}`（path 仅用于显示，主目录显示为 `~`） |
 | `session.list` | 设备 → Host | `workspaceID?` |
-| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`；`writer` 为 `"host"` 或 `"tui"`（在 Mac 终端中打开）；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
-| `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?` |
+| `session.list.result` | Host → 设备 | `sessions[]`：`{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?, worktree?}`（`worktree` 是会话自己的 git worktree 的分支名）；`writer` 为 `"host"` 或 `"tui"`（在 Mac 终端中打开）；`updatedAt` 为带小数秒的 ISO 8601 时间；在 Host 上运行的会话带有 `activity`（见下文） |
+| `session.open` | 设备 → Host | `workspaceID`、`sessionID?`（不填表示新建会话）、`lastSeq?`、`epoch?`、`worktree?`：为 `true` 时新会话在自己的 git worktree 中运行（Host 执行 `git worktree add -b wilco/<id> <工作区>/.wilco/worktrees/<id>`；需要 `worktree` 能力，且工作区的 `isGitRepository` 为真） |
 | `session.opened` | Host → 设备 | `sessionID`、`epoch`、`replay`：`"upToDate"`、`"replaying"` 或 `"resync"`；`pendingDialogs?`：会话中仍在等待的询问的 id（设备不再显示其他询问）；`draft?`：作为 `session.fork` 的回复时，新会话分叉处那条消息的文本（设备把它放进输入框） |
 | `session.fork` | 设备 → Host | `workspaceID`、`sessionID`、`entryID?`、`requestID?`：新建一个会话，内容为 `sessionID` 截至用户消息 `entryID`（取自 `session.tree.result` 的 id）之前的部分；不带 `entryID` 时复制整个会话。Host 在单独的 Pi 进程中完成，原会话（即使正在运行）不受影响。十分钟内以相同 `requestID` 重复发出的请求（例如回复途中重新连接后再次请求）会得到同一个新会话。回复：新会话的 `session.opened`，与 `session.open` 相同；Host 最多可能需要几分钟。需要 `fork` 能力。 |
 | `session.tree` | 设备 → Host | `workspaceID`、`sessionID`：会话中用户消息组成的树，由 Host 直接读取会话文件得到（不询问 Pi，因此不会拖慢正在运行的会话）。需要 `fork` 能力。 |
 | `session.tree.result` | Host → 设备 | `sessionID`、`entries`：`[{id, parentID?, text, timestamp?}]`，每条用户消息一项，按文件顺序排列；`parentID` 是同一路线上前一条用户消息；`text` 是消息的前 300 个字符。`leafID?`：会话当前延续的那条消息。尚未发送任何消息的运行中会话没有条目。设备无法读取的条目会被跳过。 |
+| `session.export` | 设备 → Host | `workspaceID`、`sessionID`：会话的 HTML 页面，由 Pi 的 `export_html` 生成（会话未运行时 Host 会启动它的 Pi，文件写到哪里由 Host 决定）。需要 `export` 能力。 |
+| `session.export.result` | Host → 设备 | `fileName`（建议的文件名，以 `.html` 结尾）、`html`。超过 16 MiB 的页面以 `too_large` 拒绝。 |
+| `files.list` | 设备 → Host | `workspaceID`、`path`：工作区内的文件夹，相对于工作区（`""` 即工作区文件夹本身）。需要 `files` 能力。 |
+| `files.list.result` | Host → 设备 | `path`、`entries`：`[{name, kind, size?, modifiedAt?}]`；`kind` 为 `file`、`directory` 或 `link`（指向工作区之外的链接，不能打开）；`truncated?`：超过 2000 项，只列出前面的部分。不列出 `.git`。设备无法读取的项会被跳过。 |
+| `files.read` | 设备 → Host | `workspaceID`、`path`：工作区内的文件。需要 `files` 能力。 |
+| `files.read.result` | Host → 设备 | `path`、`size`（整个文件的字节数）、`kind`：`text`（`text`；只发送前 2 MiB 时带 `truncated?`）、`image`（`data` 为 base64，另有 `mimeType`；超过 2 MiB 的图片以 `too_large` 拒绝）或 `binary`（不发送内容）。 |
+| `stats.get` | 设备 → Host | `days`（1–90）、`timeZone`（IANA 名称）：token 用量和花费，由 Host 从已共享工作区的会话文件中读取。需要 `stats` 能力。 |
+| `stats.result` | Host → 设备 | `rows`：`[{day, workspaceID, model, messages, input, output, cacheRead, cacheWrite, cost}]`，按天（`timeZone` 中的 `yyyy-MM-dd`）、工作区和模型（`provider/model`）各一行；`messages` 是 Pi 回复的条数。设备无法读取的行会被跳过。 |
 | `session.release` | 设备 → Host | `sessionID` |
 | `host.status` | 设备 → Host | 无 |
 | `host.status.result` | Host → 设备 | `hostVersion`、`piVersion?`、`runningSessions`、`connectedDevices` |
@@ -48,7 +56,7 @@
 
 `activity` 为 `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`。有询问等待回答时 `state` 为 `needsYou`，否则 Pi 运行时为 `working`，其余为 `idle`；设备把不认识的状态当作 `working`。`steps` 是当前（或上一次）运行中 Pi 启动的工具数，该次运行开始于 `startedAt`；`tool` 是正在运行的工具。会话在 Mac 终端里的 Pi 中打开时（[wilco-bridge](bridge.zh-CN.md)），`writer` 为 `"tui"`；由 Host 自己的 Pi 运行时不带这个字段。此时 `terminalCommands` 列出终端能执行的命令，设备不提供其他命令。
 
-目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）、`fork`（`session.fork`、`session.tree`）。Host 发送通知时会提供 `push`。
+目前定义的能力：`sessions`、`files`、`bash`、`push`、`bridge.tui`、`relay`、`guard`（Host 让每个会话都在 [wilco-guard](../Bridge/README.zh-CN.md) 之下运行，并提供 `guard.policy.*`）、`dialogs`（`session.activity`、`dialog.answer`，以及下文关于等待中询问的规则）、`fork`（`session.fork`、`session.tree`）、`stats`（`stats.get`）、`export`（`session.export`）、`worktree`（带 `worktree` 的 `session.open`）；`files` 包括 `files.list` 和 `files.read`。Host 发送通知时会提供 `push`。
 
 通知（[push.zh-CN.md](push.zh-CN.md)）遵循以下规则。设备只会收到它登记的 `events`，并且不会收到它正在某个在线连接上打开的会话的通知。询问开始等待时发送 `approval`；用时至少 10 秒、或中途等待过回答的运行结束时发送 `finished`；运行以错误结束时发送 `failed`。被中止的运行不发送通知。推送服务报告失效的令牌会被删除，被撤销设备的登记也会被删除。
 
@@ -70,6 +78,11 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 | `push_not_registered` | 在 `push.register` 之前发送了 `activity.register`。 |
 | `cancelled` | Mac 上的扩展取消了这个请求（例如分叉）。 |
 | `use_session_open` | 该命令会切换会话（`new_session`、`switch_session`、`fork`、`clone`），请改用 `session.open`。 |
+| `outside_workspace` | 路径（经由 `..` 或链接）指向工作区之外。 |
+| `invalid_path` | 路径是绝对路径、含有 `..` 或 NUL，或不是文件夹（`files.list`）。 |
+| `not_found` | 文件或文件夹不存在。 |
+| `too_large` | 文件或页面超过 Host 发送的上限。 |
+| `not_a_repository` | 在不是 git 仓库的文件夹中请求了 `worktree`，或 git 无法添加 worktree。 |
 | `not_granted` | 该命令需要所有者尚未授予此设备的权限（例如 `bash`）。 |
 | `not_available` | 已知命令，但当前 Host 版本不提供。 |
 | `pi_timeout`、`pi_error` | Pi 未能及时应答，或无法执行该命令。 |

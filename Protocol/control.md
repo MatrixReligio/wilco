@@ -21,14 +21,22 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 | `hello` | device → Host | `protocolVersion`, `capabilities[]`, `clientVersion?`, `deviceName?` |
 | `hello.ok` | Host → device | `protocolVersion`, `capabilities[]`, `hostVersion?`, `piVersion?` |
 | `workspace.list` | device → Host | none |
-| `workspace.list.result` | Host → device | `workspaces[]`: `{id, name, path}` (path is display-only, home shown as `~`) |
+| `workspace.list.result` | Host → device | `workspaces[]`: `{id, name, path, isGitRepository?}` (path is display-only, home shown as `~`) |
 | `session.list` | device → Host | `workspaceID?` |
-| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?}`; `writer` is `"host"` or `"tui"` (open in the Mac's terminal); `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
-| `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?` |
+| `session.list.result` | Host → device | `sessions[]`: `{id, workspaceID, name?, firstMessage?, updatedAt, isRunning, writer?, activity?, worktree?}`; `worktree` is the branch of the session's own git worktree; `writer` is `"host"` or `"tui"` (open in the Mac's terminal); `updatedAt` is ISO 8601 with fractional seconds; `activity` (see below) for sessions running on the Host |
+| `session.open` | device → Host | `workspaceID`, `sessionID?` (absent = new session), `lastSeq?`, `epoch?`, `worktree?`: `true` for a new session in its own git worktree (Host runs `git worktree add -b wilco/<id> <workspace>/.wilco/worktrees/<id>`; needs `worktree` and a workspace with `isGitRepository`) |
 | `session.opened` | Host → device | `sessionID`, `epoch`, `replay`: `"upToDate"`, `"replaying"` or `"resync"`; `pendingDialogs?`: the ids of the questions still waiting in the session (a device stops showing any other); `draft?`: in reply to `session.fork`, the text of the message the new session was forked from (a device puts it in its message field) |
 | `session.fork` | device → Host | `workspaceID`, `sessionID`, `entryID?`, `requestID?`: a new session holding `sessionID` up to just before the person's message `entryID` (an id from `session.tree.result`), or, without `entryID`, a copy of the whole session. The Host does it in a Pi of its own, so the original session, even one running now, is not touched. A request repeated with the same `requestID` (as after a reconnect while the answer was on its way) is answered with the same new session for ten minutes. Reply: `session.opened` for the new session, as for `session.open`; it can take the Host up to a few minutes. Needs `fork`. |
 | `session.tree` | device → Host | `workspaceID`, `sessionID`: the session's tree of the person's messages, which the Host reads from the session's file (Pi is not asked, so a running session is not slowed). Needs `fork`. |
 | `session.tree.result` | Host → device | `sessionID`, `entries`: `[{id, parentID?, text, timestamp?}]`, one per message the person sent, in file order; `parentID` is the person's message before it on its route; `text` is the message's first 300 characters. `leafID?`: the message the session continues from. A running session with nothing sent yet has no entries. An entry a device cannot read is skipped. |
+| `session.export` | device → Host | `workspaceID`, `sessionID`: the session as an HTML page, made by Pi's `export_html` (the Host starts the session's Pi if it is not running, and chooses where Pi writes the file). Needs `export`. |
+| `session.export.result` | Host → device | `fileName` (suggested, ends in `.html`), `html`. A page over 16 MiB is refused with `too_large`. |
+| `files.list` | device → Host | `workspaceID`, `path`: a folder in the workspace, relative to it (`""` is the workspace folder). Needs `files`. |
+| `files.list.result` | Host → device | `path`, `entries`: `[{name, kind, size?, modifiedAt?}]`; `kind` is `file`, `directory` or `link` (a link leading out of the workspace, which cannot be opened); `truncated?`: more than 2000 entries, only the first are listed. `.git` is not listed. An entry a device cannot read is skipped. |
+| `files.read` | device → Host | `workspaceID`, `path`: a file in the workspace. Needs `files`. |
+| `files.read.result` | Host → device | `path`, `size` (the whole file, bytes), `kind`: `text` (`text`; `truncated?` when only the first 2 MiB are sent), `image` (`data`, base64, and `mimeType`; an image over 2 MiB is refused with `too_large`) or `binary` (no content). |
+| `stats.get` | device → Host | `days` (1–90), `timeZone` (IANA name): token use and cost, read by the Host from the session files of the shared workspaces. Needs `stats`. |
+| `stats.result` | Host → device | `rows`: `[{day, workspaceID, model, messages, input, output, cacheRead, cacheWrite, cost}]`, one per day (`yyyy-MM-dd` in `timeZone`), workspace and model (`provider/model`); `messages` counts Pi's replies. A row a device cannot read is skipped. |
 | `session.release` | device → Host | `sessionID` |
 | `host.status` | device → Host | none |
 | `host.status.result` | Host → device | `hostVersion`, `piVersion?`, `runningSessions`, `connectedDevices` |
@@ -48,7 +56,7 @@ Envelopes with `"ch":"control"` carry Wilco control messages: things Pi itself d
 
 `activity` is `{state, steps, startedAt?, tool?, pendingDialogs, writer?, terminalCommands?}`. `state` is `needsYou` while any question waits for an answer, otherwise `working` while Pi runs, otherwise `idle`; a device treats a state it does not know as `working`. `steps` counts the tools Pi started in the current (or last) run, which began at `startedAt`; `tool` is the one running now. `writer` is `"tui"` while the session is open in Pi in the Mac's terminal ([wilco-bridge](bridge.md)); it is absent when the Host's own Pi runs the session. `terminalCommands` then lists the commands the terminal runs; a device does not offer the others.
 
-Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below), `fork` (`session.fork`, `session.tree`). A Host offers `push` when it sends notifications.
+Capabilities defined so far: `sessions`, `files`, `bash`, `push`, `bridge.tui`, `relay`, `guard` (the Host runs every session under [wilco-guard](../Bridge/README.md) and serves `guard.policy.*`), `dialogs` (`session.activity`, `dialog.answer`, and the waiting-question rules below), `fork` (`session.fork`, `session.tree`), `stats` (`stats.get`), `export` (`session.export`), `worktree` (`session.open` with `worktree`); `files` covers `files.list` and `files.read`. A Host offers `push` when it sends notifications.
 
 Notifications ([push.md](push.md)) follow these rules. A device hears only about the `events` it registered, and nothing about a session it has open on a live connection. `approval` is sent when a question starts waiting; `finished` when a run that took at least 10 seconds, or waited for an answer, ends; `failed` when a run ends with an error. Aborted runs are not announced. A token the push service reports dead is forgotten, and a revoked device's registration is dropped.
 
@@ -70,6 +78,11 @@ wilco-guard's questions are ordinary `confirm` extension UI requests whose `titl
 | `push_not_registered` | `activity.register` before `push.register`. |
 | `cancelled` | An extension on the Mac stopped the request (for example a fork). |
 | `use_session_open` | The command would change the session (`new_session`, `switch_session`, `fork`, `clone`); use `session.open`. |
+| `outside_workspace` | The path leads out of the workspace (through `..` or a link). |
+| `invalid_path` | The path is absolute, contains `..` or NUL, or is not a folder (`files.list`). |
+| `not_found` | No such file or folder. |
+| `too_large` | The file or page is larger than the Host sends. |
+| `not_a_repository` | `worktree` was asked for in a folder that is not a git repository, or git could not add the worktree. |
 | `not_granted` | The command needs a permission the owner has not given this device (e.g. `bash`). |
 | `not_available` | Known, but not offered by this Host version. |
 | `pi_timeout`, `pi_error` | Pi did not answer in time, or could not run the command. |
