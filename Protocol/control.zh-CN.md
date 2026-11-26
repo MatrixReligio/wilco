@@ -97,7 +97,7 @@ wilco-guard 的询问是普通的 `confirm` 扩展 UI 请求，`title` 以 `wilc
 `"ch":"session"` 且带 `sid` 的信封，承载某个会话的 Pi RPC；该会话必须已由设备在同一连接上通过 `session.open` 打开。
 
 - **设备 → Host：**每个信封一条 Pi RPC 命令（不使用 `seq`，可为 0）。同一会话的命令按发送顺序到达 Pi；一条命令不必等前一条的响应（所以 `abort_bash` 能中断正在运行的 `bash`）。设备命令中的 `id` 会原样出现在响应里。Pi 在 60 秒内没有回应的命令以 `pi_timeout` 失败，Host 随后停止这个已不再响应的 Pi 进程（流以 `wilco_session_stopped` 结束；再次打开会话时重新启动 Pi）。`bash` 和 `compact` 要等工作完成 Pi 才回应，因此不设时限。
-- **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。
+- **Host → 设备，流记录：**Pi 的事件，在该会话的 `epoch` 内由 `seq` 从 1 开始编号。断线续传补发的就是这些记录。Pi 在 50 毫秒内连续写出的同一内容块的增量（`text_delta`、`thinking_delta` 或 `toolcall_delta` 的 `message_update`）合并为一条记录送达：取其中最后一条，把各段增量拼接起来（每条最多 16 KB 文本）。出现其他记录时会先发出等待中的增量，顺序不变。
 - **Host → 设备，响应：**对本设备命令的响应，或采用 Pi 响应格式的错误（`{"type":"response","id","command","success":false,"error","code"}`，code 见上表），`seq` 为 0：响应不属于流，永不补发。来自 Pi 的响应带有 `ack`：Pi 在它之前写出的最后一条流记录的 `seq`（本 epoch 内没有则为 0）。响应和流记录分开传输，到达顺序不定；`ack` 说明 `get_messages` 这类响应已经包含了哪些记录。另有一条 Host 记录也使用 `seq` 0：`{"type":"wilco_session_stopped"}`，在 Host 为落后的设备恢复流、却发现会话已经停止时发送。
 - `get_tree` 的回复是 `not_available`：Pi 的会话树每条记录嵌套一层 JSON，超过几百条记录后任何 JSON 解析器都读不了。请改用 `session.tree` 向 Host 请求。
 - 共享工作区以外的 Host 文件系统路径会被替换为 `"<outside-workspace>"`，会话文件路径替换为不透明的 `"session:…"` 标识。

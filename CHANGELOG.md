@@ -6,6 +6,9 @@ All notable changes to the open-source parts of Wilco are documented here. The f
 
 ## [Unreleased]
 
+### Changed
+- `Protocol/control.md`: deltas of one content block written within 50 ms of each other reach the device as one stream record.
+
 ## [1.0.0] - 2026-11-26
 
 The first release of Wilco, with Wilco Host 1.0.0 for the Mac and Wilco 1.0.0 for iPhone and iPad.
